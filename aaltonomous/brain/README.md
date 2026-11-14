@@ -26,7 +26,7 @@ reason, plus one clarification *question*.
 | `live.py` | Live view on the laptop webcam or a video: boxes, colours, shapes and ids drawn as it runs |
 | `test_track.py` | Tracking on moving made-up objects, flicker filtering, shape voting, the background thread |
 | `lid.py` | `find_lid(image, T)`: the lid with the shaped holes, which box it is on, each hole's shape, 3D centre and angle |
-| `test_lid.py` | Real lid photos (white, black, three boxes), 41 robot frames with open boxes (no lid may be found), drawn scenes with known answers |
+| `test_lid.py` | Real lid photos (white, black, three boxes, a slanted view like the robot's + 3 video frames), 41 robot frames with open boxes (no lid may be found), drawn scenes with known answers |
 | `drop.py` | `drop_point(box, shape, lid, k)`: where to let go of an object, above its hole or at a free spot in an open box |
 | `test_drop.py` | Drop spots stay inside the box and apart; lid drops land on the right hole |
 
@@ -139,8 +139,11 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
 - One box has a lid (20 x 20 x 1 cm, white or black) with a square, a round and a triangular hole (about 6 cm). The
   box and the lid can be turned, and the lid can lie anywhere from the box floor to the rim, so nothing is hard-coded:
   each hole is found and named by its shape.
-- The lid is found inside a strongly orange box as one solid plate with holes, whatever its colour. On 41 robot
-  frames with open boxes (both dataset drops) no lid is found; all three real lid photos give all three holes.
+- The lid is found inside an orange box as one solid plate with holes, whatever its colour. On 41 robot frames with
+  open boxes (both dataset drops) no lid is found; the three top-down lid photos give all three holes. In the phone
+  video at about the robot's angle (431 frames) the lid is found in every frame, with the triangle: the box's front
+  wall hides the round and square holes there, so they are (correctly) not reported. About 70 ms per image: call
+  `find_lid` once, not every frame.
 - Height without depth: a whole lid in view is 20 cm wide, which gives its height (positions within about 0.5 cm in
   the drawn tests). If part of it is hidden (box wall, hand, image border) the 6 cm holes give it instead (within about
   1.2 cm). **Please measure one square hole and the circle with a ruler**: the 6 cm is read off a photo.

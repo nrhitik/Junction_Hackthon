@@ -62,12 +62,19 @@ class Lid:
 
 
 def boxes(bgr):
-    """(orange mask, [convex image outline of each box])."""
-    m = color_masks(bgr)
-    m = (((m["orange"] | m["red"]) > 0) & (cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)[..., 1] > 130)).astype(np.uint8)
-    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
-    return m, [cv2.convexHull(c) for c in cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-               if cv2.contourArea(c) > 0.02 * m.size]
+    """[(tape mask, [convex outline of each box])], from two ways of finding the boxes' orange tape:
+    - the reddest thing in view: the redness (Lab a) that best splits the reddish pixels in two (Otsu) separates it from
+      the table and the cardboard, whatever the camera's colours;
+    - strongly saturated orange: also finds tape washed out by bright light, but can take in a strongly lit table.
+    The lid search tries both; the one finding a lid with more holes wins."""
+    a, c = cv2.cvtColor(bgr, cv2.COLOR_BGR2Lab)[..., 1], color_masks(bgr)
+    out = []
+    for m in (a > cv2.threshold(a[a > 138].reshape(-1, 1), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0],
+              ((c["orange"] | c["red"]) > 0) & (cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)[..., 1] > 130)):
+        m = cv2.morphologyEx(m.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+        out.append((m, [cv2.convexHull(c) for c in cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+                        if cv2.contourArea(c) > 0.02 * m.size]))
+    return out
 
 
 def shape_of(pts):
@@ -94,32 +101,35 @@ def to_plane(uv, z, T):
 
 def _plates(bgr):
     """Yield (box index, lid outline, [hole outlines], [hole filled?], box outlines) for every lid-like plate in a box.
-    A hole is filled if over 30 % of it differs from the box floor's colour (an object in it)."""
-    orange, outlines = boxes(bgr)
+    The tape rims cut the inside of each box outline into pieces (each box's opening, the table in front); each piece
+    is split into three colour groups (e.g. lid, lit cardboard, shaded walls) and each group, and each pair of groups
+    (a lid can be lit on one side and shaded on the other), is tried as the lid.
+    Filled: with 3 holes in view, a hole whose colour is far from the others' (they show the box floor) has an object
+    in it; with fewer holes there is nothing to compare with and none is marked."""
     lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2Lab).astype(np.float32) * [W_L, 1, 1]
-    edge, k3 = cv2.dilate(orange, np.ones((5, 5), np.uint8)), np.ones((3, 3), np.uint8)
+    k3, blank = np.ones((3, 3), np.uint8), np.zeros(bgr.shape[:2], np.uint8)
     solid = lambda c, a: cv2.contourArea(c) > a * cv2.contourArea(cv2.convexHull(c))
-    fill = lambda c: cv2.drawContours(np.zeros_like(orange), [c], -1, 1, -1)
-    for i, hull in enumerate(outlines):
-        inside = cv2.fillConvexPoly(np.zeros_like(orange), hull, 1) & (1 - edge)
+    fill = lambda c: cv2.drawContours(blank.copy(), [c], -1, 1, -1)
+    pieces = [(i, outlines, np.uint8(piece == k)) for orange, outlines in boxes(bgr) for i, hull in enumerate(outlines)
+              for n, piece, st, _ in [cv2.connectedComponentsWithStats(cv2.fillConvexPoly(blank.copy(), hull, 1) &
+                                                                       (1 - cv2.dilate(orange, np.ones((5, 5), np.uint8))))]
+              for k in range(1, n) if st[k, cv2.CC_STAT_AREA] > 0.01 * blank.size]
+    for i, outlines, inside in pieces:
         px = lab[inside > 0]
-        if len(px) < 200:
-            continue
-        _, _, ctr = cv2.kmeans(np.float32(px[::4]), 2, None, (3, 20, 1.0), 3, cv2.KMEANS_PP_CENTERS)
-        if np.linalg.norm(ctr[0] - ctr[1]) < 20:   # one colour inside: an open box
-            continue
-        group = np.zeros_like(orange)
-        group[inside > 0] = np.linalg.norm(px - ctr[1], axis=1) < np.linalg.norm(px - ctr[0], axis=1)
-        for m, floor in ((group, ctr[0]), (inside - group, ctr[1])):   # either group can be the lid
-            m = cv2.morphologyEx(m, cv2.MORPH_OPEN, k3)
+        _, _, ctr = cv2.kmeans(np.float32(px[::4]), 3, None, (3, 20, 1.0), 3, cv2.KMEANS_PP_CENTERS)
+        group = blank.copy()
+        group[inside > 0] = np.linalg.norm(px[:, None] - ctr[None], axis=2).argmin(1) + 1
+        for j in ((1,), (2,), (3,), (1, 2), (1, 3), (2, 3)):
+            m = cv2.morphologyEx(np.uint8(np.isin(group, j)), cv2.MORPH_OPEN, k3)
             for c in cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[0]:
-                a = cv2.contourArea(c)
-                if a < 0.08 * inside.sum() or not solid(c, 0.85):
+                a = cv2.contourArea(c)   # (front holes cut by the box wall bite into the outline: 0.75, not convex)
+                if a < 0.08 * inside.sum() or not solid(c, 0.75):
                     continue
                 gaps = cv2.morphologyEx(fill(c) & (1 - m), cv2.MORPH_OPEN, k3)
                 holes = [h for h in cv2.findContours(gaps, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[0]
                          if max(30, 0.02 * a) < cv2.contourArea(h) < 0.25 * a and solid(h, 0.85)]
-                full = [np.mean(np.linalg.norm(lab[fill(h) > 0] - floor, axis=1) > 30) > 0.3 for h in holes]
+                col = [np.median(lab[fill(h) > 0], axis=0) for h in holes]
+                full = [len(holes) > 2 and np.linalg.norm(x - np.median(col, axis=0)) > 30 for x in col]
                 if holes:
                     yield i, c, holes, full, outlines
 

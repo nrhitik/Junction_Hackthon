@@ -76,6 +76,11 @@ class RealPhotos(unittest.TestCase):
             self.assertEqual((lid.box, sorted(h.shape for h in lid.holes)), (box, ["cube", "cylinder", "prism"]), f)
             self.assertFalse(any(h.filled for h in lid.holes), f)
 
+    def test_slanted_view(self):   # phone at about the robot's angle: the front wall hides the round and square holes
+        for f in ["lid_slanted.jpg"] + [os.path.basename(f) for f in glob.glob(os.path.join(DATA, "lid_video_*.jpg"))]:
+            lid = find_lid(load(os.path.join(DATA, f)), T=False)
+            self.assertEqual((lid.box, [h.shape for h in lid.holes]), ("left", ["prism"]), f)
+
     def test_no_lid_in_open_boxes(self):
         files = glob.glob(os.path.join(DATA, "head_*.jpg")) + glob.glob(os.path.join(DATA, "drop2_*.jpg"))
         self.assertEqual([f for f in files if find_lid(load(f)) is not None], [])
