@@ -14,7 +14,7 @@ between the box floor and its rim):
   colour groups; a group is the lid if it forms one solid plate enclosing hole-shaped patches (box floor seen through
   the holes). The lid's own colour does not matter (white, black, ...).
 - Height: the lid is 20 cm wide. Traced back onto the table plane its outline looks wider the higher it lies (closer
-  to the camera), so its width gives its height. If the lid is cut by the image border, the holes' 6 cm width is used.
+  to the camera), so its width gives its height. If part of the lid is hidden, the holes' measured sizes are used instead.
 - Hole shape: the outline is traced back onto the lid plane (taking out the camera's slant); a circle has every edge
   point equally far from its centre, a square fills its tightest rectangle (~0.95), a triangle does not (~0.65).
 - yaw (rad, about the robot's z axis, from x towards y): square = direction of one edge, 0-90 deg; triangle =
@@ -28,7 +28,9 @@ import numpy as np
 from aaltonomous.brain.calibrate import CAL, TABLE_Z, bins
 from aaltonomous.brain.colors import color_masks
 
-LID, HOLE = 0.20, 0.06   # lid 20 x 20 x 1 cm (measured); square side / circle diameter of the holes (from photos)
+LID = 0.20                                  # lid 20 x 20 x 1 cm (measured)
+HOLE = {"cube": 0.0625, "cylinder": 0.06, "prism": 0.0635}   # measured: square side 6-6.5 cm, circle diameter 6 cm,
+                                                             # triangle 5-6 cm tall (5.5 cm tall = 6.35 cm side)
 TYPICAL = {"cylinder": (1.05, 0.8), "cube": (1.37, 0.97), "prism": (1.7, 0.63)}   # (roundness, fill)
 W_L = 0.25               # weight of lightness against colour when splitting a box's inside into two groups
 
@@ -116,6 +118,7 @@ def _plates(bgr):
               for k in range(1, n) if st[k, cv2.CC_STAT_AREA] > 0.01 * blank.size]
     for i, outlines, inside in pieces:
         px = lab[inside > 0]
+        cv2.setRNGSeed(0)   # same groups every run
         _, _, ctr = cv2.kmeans(np.float32(px[::4]), 3, None, (3, 20, 1.0), 3, cv2.KMEANS_PP_CENTERS)
         group = blank.copy()
         group[inside > 0] = np.linalg.norm(px[:, None] - ctr[None], axis=2).argmin(1) + 1
@@ -147,20 +150,20 @@ def _measure(bgr, plate, T):
                    [Hole(shape_of(h), *mid(h), filled=f) for h, f in zip(holes, full)], c)
     H, W = bgr.shape[:2]
     flat = lambda pts, z=TABLE_Z: cv2.convexHull(np.float32(to_plane(pts.reshape(-1, 2).astype(float), z, T))).reshape(-1, 2)
-    rect = cv2.minAreaRect(flat(c))
+    rect, z_at = cv2.minAreaRect(flat(c)), lambda scale: T[2, 3] - (T[2, 3] - TABLE_Z) * scale
+    # height from the round and square holes' measured sizes (minus 1.5 px: blurred edge pixels count as hole)
+    px = lambda h: np.linalg.norm(np.subtract(*to_plane(mid(h) + np.array([[0, 0], [1, 0]]), TABLE_Z, T)))
+    # (the triangle only if nothing else is in view: its rounded corners and 5-6 cm make it less precise)
+    side = {"cube": 1, "cylinder": np.sqrt(np.pi) / 2, "prism": np.sqrt(np.sqrt(3) / 4)}   # size = sqrt(area) / side
+    sizes = [(k == "prism", HOLE[k] / (np.sqrt(cv2.contourArea(flat(h))) / side[k] - 1.5 * px(h)))
+             for h in holes for k in [shape_of(flat(h))]]
+    sizes = [v for p, v in sizes if not p] or [v for p, v in sizes]
+    z = z_at(np.median(sizes)) if sizes else None
+    # more precise: the lid's 20 cm width, if the whole lid is in view (a square on the table) and agrees with the holes
     if cv2.contourArea(flat(c)) > 0.95 * np.prod(rect[1]) and min(rect[1]) > 0.93 * max(rect[1]) and not np.any(
             (c[..., 0] <= 1) | (c[..., 1] <= 1) | (c[..., 0] >= W - 2) | (c[..., 1] >= H - 2)):
-        scale = LID / max(rect[1])   # the whole lid is in view (a square on the table): its 20 cm width
-    else:   # cut by a box wall, the hand or the image border: the round and square holes' 6 cm
-        # (minus 1.5 px: blurred edge pixels count as hole, which makes holes look slightly wider)
-        px = lambda h: np.linalg.norm(np.subtract(*to_plane(mid(h) + np.array([[0, 0], [1, 0]]), TABLE_Z, T)))
-        sizes = [np.sqrt(cv2.contourArea(flat(h))) / (1 if shape_of(flat(h)) == "cube" else np.sqrt(np.pi) / 2)
-                 - 1.5 * px(h) for h in holes if shape_of(flat(h)) != "prism"]
-        if not sizes:
-            return None
-        scale = HOLE / np.median(sizes)
-    z = T[2, 3] - (T[2, 3] - TABLE_Z) * scale   # the height where the lid (or hole) has its real width
-    if not TABLE_Z < z < TABLE_Z + 0.15:
+        z = z_at(LID / max(rect[1])) if z is None or abs(z_at(LID / max(rect[1])) - z) < 0.02 else z
+    if z is None or not TABLE_Z < z < TABLE_Z + 0.15:
         return None
     out = []
     for h, f in zip(holes, full):
@@ -175,7 +178,7 @@ def _measure(bgr, plate, T):
             yaw, size = np.arctan2(tip[1] - y, tip[0] - x) % (2 * np.pi / 3), np.sqrt(4 * area / np.sqrt(3))
         else:
             yaw, size = 0.0, 2 * np.sqrt(area / np.pi)
-        if 0.035 < size < 0.09:
+        if 0.75 < size / HOLE[shape] < 1.3:   # a hole of the measured size, not some other gap
             out.append(Hole(shape, *mid(h), x, y, float(yaw), float(size), f))
     centre = to_plane(mid(c)[None], z, T)[0]
     box = min(bins().items(), key=lambda b: np.linalg.norm(b[1][:, :2].mean(0) - centre))[0]

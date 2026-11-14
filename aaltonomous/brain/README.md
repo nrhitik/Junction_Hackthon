@@ -136,7 +136,7 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
 
 ## Lid, holes and drop positions
 
-- One box has a lid (20 x 20 x 1 cm, white or black) with a square, a round and a triangular hole (about 6 cm). The
+- One box has a lid (20 x 20 x 1 cm, white or black) with a square (6-6.5 cm), a round (6 cm) and a triangular hole (5-6 cm tall), measured. The
   box and the lid can be turned, and the lid can lie anywhere from the box floor to the rim, so nothing is hard-coded:
   each hole is found and named by its shape.
 - The lid is found inside an orange box as one solid plate with holes, whatever its colour. On 41 robot frames with
@@ -145,8 +145,8 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
   wall hides the round and square holes there, so they are (correctly) not reported. About 70 ms per image: call
   `find_lid` once, not every frame.
 - Height without depth: a whole lid in view is 20 cm wide, which gives its height (positions within about 0.5 cm in
-  the drawn tests). If part of it is hidden (box wall, hand, image border) the 6 cm holes give it instead (within about
-  1.2 cm). **Please measure one square hole and the circle with a ruler**: the 6 cm is read off a photo.
+  the drawn tests). If part of it is hidden (box wall, hand, image border) the holes' measured sizes give it instead (within
+  about 1.2 cm; the square's 6-6.5 cm range adds a little: 6.25 cm is used).
 - A low lid seen at the robot's slant has its front part hidden behind the box's front wall; holes there are not
   reported (`lid.hole(shape)` is None) rather than guessed. Bending the head or torso to look more steeply down helps.
 - A hole is `filled` when most of it is a colour other than the box floor (an object in it).

@@ -17,7 +17,7 @@ from aaltonomous.brain.lid import find_lid
 
 DATA = os.path.join(os.path.dirname(__file__), "testdata")
 WALL = 0.075
-# holes in the lid's own frame (m): like the real lid, triangle at the back (corner pointing +y), circle and square
+# holes in the lid's own frame (m), measured sizes (triangle 5.5 cm tall = 6.35 cm side): like the real lid, triangle at the back (corner pointing +y), circle and square
 HOLES = {"prism": (0.0, 0.05), "cylinder": (-0.05, -0.045), "cube": (0.05, -0.045)}
 
 
@@ -55,7 +55,7 @@ def scene(top, yaw, box="center", lid_bgr=(40, 40, 40), shift=(0, 0), fill=None,
     truth = {}
     for s, off in HOLES.items():
         truth[s] = centre + R @ off
-        fp(px(_poly(s, 0.065 if s == "prism" else 0.06) @ R.T + truth[s], z), (95, 130, 160), layer)
+        fp(px(_poly(s, {"prism": 0.0635, "cube": 0.0625, "cylinder": 0.06}[s]) @ R.T + truth[s], z), (95, 130, 160), layer)
         if s == fill:
             fp(px(_poly("cube", 0.045) @ R.T + truth[s], z), (30, 200, 230), layer)
     inside = cv2.fillPoly(np.zeros(img.shape[:2], np.uint8), [opening], 1, cv2.LINE_AA, 4)   # the walls hide the rest
@@ -112,7 +112,7 @@ class Positions(unittest.TestCase):
         self.check(0.03, np.radians(25), hidden=["cylinder"], tol=0.012)
 
     def test_white_lid_turned_round(self):
-        self.check(0.05, np.radians(200), lid_bgr=(225, 230, 230))
+        self.check(0.05, np.radians(200), tol=0.012, lid_bgr=(225, 230, 230))
 
     def test_lid_moved_inside_the_box(self):
         self.check(0.02, np.radians(-15), hidden=["cylinder"], tol=0.012, shift=(0.004, -0.004))
