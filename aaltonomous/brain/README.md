@@ -1,4 +1,4 @@
-# brain: instruction understanding and colour detection
+# brain: instruction understanding, colour and shape detection
 
 A local LLM (Gemma 3 4B via Ollama) reads the sorting instruction and turns it into rules (colour/shape -> bin).
 Python then checks every rule against the world (10 colour names, 3 shapes, 3 bins) and against the colours the
@@ -15,6 +15,10 @@ reason, plus one clarification *question*.
 | `test_instruction.py` | Offline checks (fake model replies) + live tests with Gemma (accuracy and time per call) |
 | `colors.py` | `find_objects(image)`: every object on the table with its colour name and pixel position (OpenCV) |
 | `test_colors.py` | 35 labelled head-camera frames from all 20 episodes and a phone photo (`testdata/`) + synthetic scenes for every palette colour |
+| `render.py` | Synthetic training images of the three shapes from the organisers' 3D models (any pose, colour, light, camera angle) |
+| `shapes.py` | `classify(image, objects)`: cube / cylinder / triangle for each detected object; `train` makes `shapes.onnx` |
+| `shapes.onnx` | The trained network (1 MB). Runs with OpenCV alone, no PyTorch, ~3 ms for 9 objects on the CPU |
+| `test_shapes.py` | 79 real objects labelled by eye (`testdata/shapes.json`), never seen in training |
 
 Two modes:
 - **Chat (testing):** the model explains what confuses it and asks; your answer refines the plan.
@@ -65,3 +69,14 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
 - Tests: 35 labelled head-camera frames from all 20 episodes and one phone photo with 9 objects (incl. prisms).
   On the dataset video (every 30th frame, 391 frames) a wrong extra colour appears in 1 frame.
 - Dataset (not in git): download https://huggingface.co/datasets/zupermiez/g1_pick_cube into `data/g1_pick_cube/`.
+
+## Shape detection: what it does and doesn't
+
+- Trained only on rendered images: the organisers' exact 3D models of the three shapes, resting on any face (cylinders
+  and prisms upright or lying down, 10 % tumbled as if held), random colour, light and camera angle, with a shadow, on
+  patches of the real table, sometimes with a neighbouring object in the picture.
+- Real photos it never saw: 97.5 % (77 of 79). The two misses are crops with two objects or the robot hand in them.
+- Prisms: only 3 real examples so far (one phone photo), so that number rests on very little. More real photos of
+  prisms, upright and lying, would tell us how good it really is.
+- Retrain (needs PyTorch: `pip install -r requirements-train.txt`): `python -m aaltonomous.brain.shapes train 60000 15`,
+  about 3 minutes on an RTX 5070. The accuracy printed per pass jumps around; judge the final one.
