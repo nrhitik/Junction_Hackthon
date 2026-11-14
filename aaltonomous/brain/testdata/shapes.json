@@ -707,7 +707,7 @@
 60,
 62
 ],
-"shape": "triangle"
+"shape": "prism"
 },
 {
 "file": "phone_table.jpg",
@@ -767,7 +767,7 @@
 44,
 55
 ],
-"shape": "triangle"
+"shape": "prism"
 },
 {
 "file": "phone_table.jpg",
@@ -787,6 +787,6 @@
 49,
 57
 ],
-"shape": "triangle"
+"shape": "prism"
 }
 ]

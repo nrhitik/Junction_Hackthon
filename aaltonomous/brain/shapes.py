@@ -1,4 +1,4 @@
-"""Shape of each detected object: cube, cylinder or triangle (prism). A small network trained only on synthetic images.
+"""Shape of each detected object: cube, cylinder or prism (triangular prism). A small network trained only on synthetic images.
 
     from aaltonomous.brain.shapes import classify
     classify(bgr, find_objects(bgr))      # -> [("cube", 0.97), ("cylinder", 0.88), ...], one per object

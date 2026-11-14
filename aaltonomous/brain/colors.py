@@ -71,7 +71,8 @@ def _split(mask, n):
 
 
 def find_objects(bgr, size=(0.004, 0.03), min_fill=0.45, ignore=("cyan",), **kw):
-    """size = (min, max) area of ONE object as a fraction of the image; min_fill = blob area / bounding-box area.
+    """size = (min, max) area of ONE object as a fraction of the image at the robot's view (the max grows when the
+    objects in the image are clearly bigger, e.g. a closer camera); min_fill = blob area / bounding-box area.
     ignore: colours to skip. Default cyan: under the venue lights the robot's silver arm reads as cyan."""
     lo, hi = (f * bgr.shape[0] * bgr.shape[1] for f in size)
     objs, masks, lit = [], color_masks(bgr, **kw), bgr.max(axis=2) >= 110
@@ -84,6 +85,7 @@ def find_objects(bgr, size=(0.004, 0.03), min_fill=0.45, ignore=("cyan",), **kw)
         if lo <= st[i, cv2.CC_STAT_AREA] <= 3 * hi and counts[top] >= 0.75 * total and close >= 0.95 * total:
             for c, m in masks.items():
                 m[blob] = c == top
+    cands = []
     for color, mask in masks.items():
         if color in ignore:
             continue
@@ -98,18 +100,22 @@ def find_objects(bgr, size=(0.004, 0.03), min_fill=0.45, ignore=("cyan",), **kw)
                 continue   # noise, a bin, or a piece of a bin wall cut off by the robot's hand
             blob = (lab == i).astype(np.uint8)
             hull = cv2.contourArea(cv2.convexHull(cv2.findContours(blob, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0]))
-            if area < 0.65 * hull:
-                continue   # hollow / L-shaped: a piece of a bin, not objects
-            w, h = st[i, cv2.CC_STAT_WIDTH], st[i, cv2.CC_STAT_HEIGHT]
-            # two touching objects: too big, or big and elongated, or big and not convex (the bigger, the stricter)
-            merged = area > hi or (area > 0.55 * hi and (max(w, h) > 1.7 * min(w, h) or
-                                                         area / hull < 0.85 + 0.1 * area / hi))
-            for m in (_split(blob, max(2, int(np.ceil(area / hi)))) if merged else [blob]):
-                x, y, w, h = cv2.boundingRect(m)
-                a = int(m.sum())
-                if a >= lo and a / (w * h) >= min_fill and 0.4 <= w / h <= 2.5:
-                    ys, xs = np.nonzero(m)
-                    objs.append(Obj(color, x, y, w, h, a, float(xs.mean()), float(ys.mean())))
+            if area >= 0.65 * hull:   # hollow / L-shaped blobs are pieces of a bin, not objects
+                cands.append((color, blob, area, hull, st[i, cv2.CC_STAT_WIDTH], st[i, cv2.CC_STAT_HEIGHT]))
+    # how big one object is in THIS image: from the clean, compact blobs (a closer camera makes everything bigger)
+    solo = [a for _, _, a, hl, w, h in cands if a > 0.9 * hl and max(w, h) < 1.5 * min(w, h)]
+    one = float(np.clip(1.6 * np.percentile(solo, 25), hi, 10 * hi)) if len(solo) >= 3 else hi   # 3+ to trust it
+    for color, blob, area, hull, w, h in cands:
+        # two touching objects: big and elongated, or big and not convex (the bigger, the stricter), or huge.
+        # One object alone is always convex (cube, cylinder and prism outlines are), however close the camera.
+        merged = area > 2.2 * one or (area > 0.55 * one and (max(w, h) > 1.7 * min(w, h) or
+                                                             area / hull < 0.85 + 0.1 * min(area / one, 1)))
+        for m in (_split(blob, max(2, int(np.ceil(area / one)))) if merged else [blob]):
+            x, y, w2, h2 = cv2.boundingRect(m)
+            a = int(m.sum())
+            if a >= lo and a / (w2 * h2) >= min_fill and 0.4 <= w2 / h2 <= 2.5:
+                ys, xs = np.nonzero(m)
+                objs.append(Obj(color, x, y, w2, h2, a, float(xs.mean()), float(ys.mean())))
     return sorted(objs, key=lambda o: (o.cx, o.cy))
 
 

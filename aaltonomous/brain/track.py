@@ -76,7 +76,7 @@ class Tracker:
 
 
 def detect(bgr):
-    """Objects and their shapes; no shape for objects cut by the image border (a cut cube looks like a triangle)."""
+    """Objects and their shapes; no shape for objects cut by the image border (a cut cube looks like a prism)."""
     objs = find_objects(bgr)
     H, W = bgr.shape[:2]
     return objs, [None if o.x <= 1 or o.y <= 1 or o.x + o.w >= W - 1 or o.y + o.h >= H - 1 else s

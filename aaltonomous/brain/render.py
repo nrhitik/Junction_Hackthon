@@ -1,6 +1,6 @@
 """Synthetic training images of the three shapes, from the organisers' 3D models (no 3D library needed).
 
-    img, label = sample(rng, backgrounds)   # 64x64 BGR crop around one rendered object; label 0 cube, 1 cylinder, 2 triangle
+    img, label = sample(rng, backgrounds)   # 64x64 BGR crop around one rendered object; label 0 cube, 1 cylinder, 2 prism
     python -m aaltonomous.brain.render out.jpg   # a sheet of examples
 
 Each object rests on one of its faces (cylinders and prisms upright or lying down) with a random turn, colour and
@@ -15,17 +15,17 @@ import re
 import cv2
 import numpy as np
 
-SHAPES = ("cube", "cylinder", "triangle")
+SHAPES = ("cube", "cylinder", "prism")   # prism = triangular prism
 HERE = os.path.dirname(__file__)
 ASSETS = os.path.join(HERE, "..", "organisers", "assets")
 # resting faces: outward normals (object frame) that can point down
 REST = {"cube": [(0, 0, 1), (0, 0, -1), (1, 0, 0), (0, 1, 0)], "cylinder": [(0, 0, 1), (0, 0, -1), "side"],
-        "triangle": [(0, 0, 1), (0, 0, -1), (0, -1, 0), (0.866, 0.5, 0), (-0.866, 0.5, 0)]}
+        "prism": [(0, 0, 1), (0, 0, -1), (0, -1, 0), (0.866, 0.5, 0), (-0.866, 0.5, 0)]}
 
 
 def load_mesh(shape):
     """(n, 3, 3) triangles in metres, centred."""
-    with open(os.path.join(ASSETS, f"object_{shape}.stl")) as f:
+    with open(os.path.join(ASSETS, f"object_{'triangle' if shape == 'prism' else shape}.stl")) as f:
         v = np.array(re.findall(r"vertex\s+(\S+)\s+(\S+)\s+(\S+)", f.read()), float).reshape(-1, 3, 3) / 1000
     return v - (v.reshape(-1, 3).min(0) + v.reshape(-1, 3).max(0)) / 2
 
@@ -62,7 +62,8 @@ def pose(shape, rng):
 
 def camera(rng):
     """World-to-camera rotation and camera position: looking at the object from above at a random angle."""
-    el, az, dist = rng.uniform(np.radians(25), np.radians(85)), rng.uniform(0, 2 * np.pi), rng.uniform(0.3, 0.9)
+    # from almost side-on (5 deg above the table, a webcam on the table) to almost straight down
+    el, az, dist = rng.uniform(np.radians(5), np.radians(85)), rng.uniform(0, 2 * np.pi), rng.uniform(0.25, 0.9)
     eye = dist * np.array([np.cos(el) * np.cos(az), np.cos(el) * np.sin(az), np.sin(el)])
     z = -eye / np.linalg.norm(eye)                       # optical axis towards the object
     x = np.cross(z, (0, 0, 1)); x /= np.linalg.norm(x)   # image right

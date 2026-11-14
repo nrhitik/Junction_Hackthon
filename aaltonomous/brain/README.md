@@ -16,7 +16,7 @@ reason, plus one clarification *question*.
 | `colors.py` | `find_objects(image)`: every object on the table with its colour name and pixel position (OpenCV) |
 | `test_colors.py` | 35 labelled head-camera frames from all 20 episodes and a phone photo (`testdata/`) + synthetic scenes for every palette colour |
 | `render.py` | Synthetic training images of the three shapes from the organisers' 3D models (any pose, colour, light, camera angle) |
-| `shapes.py` | `classify(image, objects)`: cube / cylinder / triangle for each detected object; `train` makes `shapes.onnx` |
+| `shapes.py` | `classify(image, objects)`: cube / cylinder / prism for each detected object; `train` makes `shapes.onnx` |
 | `shapes.onnx` | The trained network (1 MB). Runs with OpenCV alone, no PyTorch, ~3 ms for 9 objects on the CPU |
 | `test_shapes.py` | 79 real objects labelled by eye (`testdata/shapes.json`), never seen in training |
 | `calibrate.py` | `fit_camera(image)`: the head camera's real pose, fitted so the three boxes (known positions) line up |
@@ -79,7 +79,8 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
 ## Shape detection: what it does and doesn't
 
 - Trained only on rendered images: the organisers' exact 3D models of the three shapes, resting on any face (cylinders
-  and prisms upright or lying down, 10 % tumbled as if held), random colour, light and camera angle, with a shadow, on
+  and prisms upright or lying down, 10 % tumbled as if held), random colour, light and camera angle (from almost
+  side-on, like a webcam on the table, to straight down), with a shadow, on
   patches of the real table, sometimes with a neighbouring object in the picture.
 - Real photos it never saw: 97.5 % (77 of 79). The two misses are crops with two objects or the robot hand in them.
 - Prisms: only 3 real examples so far (one phone photo), so that number rests on very little. More real photos of
@@ -111,3 +112,6 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
 - Measured on whole dataset episodes: episodes 10 and 15 give exactly the six objects with stable ids and correct
   shapes. Objects held in the hand or partly hidden (by the hand, by a box wall) can get a wrong shape; objects cut
   by the image border get no shape at all (None) rather than a guess.
+- The size of one object is estimated from each image, so a closer camera (the webcam) doesn't split one object into
+  two boxes. Objects cut by the image border can still be split: keep them fully in view.
+- Shape names: cube, cylinder, prism (the organisers call the prism "triangle"; instructions may use either word).

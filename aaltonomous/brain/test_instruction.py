@@ -59,9 +59,9 @@ class Checks(unittest.TestCase):   # offline
         self.assertTrue(any("yellow" in i for i in p.issues))
 
     def test_specific_rule_wins(self):
-        with fake((None, None, "left"), (R, None, "center"), (R, "cube", "right"), (None, "triangle", "right")):
+        with fake((None, None, "left"), (R, None, "center"), (R, "cube", "right"), (None, "prism", "right")):
             p = understand("Everything left, red in the center, but red cubes and all triangles right.")
-        self.assertEqual([p.bin_for(R, "cube"), p.bin_for(R, "cylinder"), p.bin_for(B, "triangle"),
+        self.assertEqual([p.bin_for(R, "cube"), p.bin_for(R, "cylinder"), p.bin_for(B, "prism"),
                           p.bin_for(Y, "cube")], ["right", "center", "right", "left"])
 
     # ---- plan checked against the colours the camera sees (match.py)

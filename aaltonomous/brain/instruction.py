@@ -16,12 +16,14 @@ from dataclasses import dataclass, field
 from aaltonomous.brain import llm
 from aaltonomous.brain.ask import ask
 from aaltonomous.brain.match import PALETTE, check_scene
-from aaltonomous.organisers.tasks import BINS, COLORS, SHAPES
+from aaltonomous.organisers.tasks import BINS, COLORS
+
+SHAPES = ("cube", "cylinder", "prism")   # the organisers call the prism "triangle"
 
 SYSTEM = """You turn a sorting instruction for a robot into JSON rules.
 The world:
 - Objects have a colour (usually red, yellow or blue; possible: red, orange, yellow, green, cyan, blue, purple, pink,
-  black, white) and a shape (cube, cylinder, triangle = triangular prism).
+  black, white) and a shape (cube, cylinder, prism = triangular prism).
 - Three identical bins in a row, named only by position from the robot's point of view: left, center, right.
 Write one rule per thing the instruction asks: {"color": ..., "shape": ..., "bin": ...}. shape is null unless the
 instruction names a shape; color is null unless it names a colour. Use the words above ("middle"/"centre" -> center,
@@ -59,9 +61,9 @@ SCHEMA = {"type": "object", "required": ["rules", "issues", "question"], "proper
                                          "properties": {"color": _FIELD, "shape": _FIELD, "bin": _FIELD}}},
     "issues": {"type": "array", "items": {"type": "string"}}, "question": _FIELD}}
 SHAPE_WORDS = {"cube": ("cube", "cubic", "square"), "cylinder": ("cylind", "round", "circ", "disc", "disk"),
-               "triangle": ("triang", "prism", "wedge")}   # a shape counts only if the user said one of these
-ALIASES = {"centre": "center", "middle": "center", "central": "center", "prism": "triangle",
-           "triangular prism": "triangle", "triangular": "triangle", "square": "cube", "round": "cylinder"}
+               "prism": ("triang", "prism", "wedge")}   # a shape counts only if the user said one of these
+ALIASES = {"centre": "center", "middle": "center", "central": "center", "triangle": "prism",
+           "triangular prism": "prism", "triangular": "prism", "square": "cube", "round": "cylinder"}
 YES = r"(yes|yeah|yep|yup|y|ok|okay|sure|correct|affirmative|do it|go ahead|please do)\b"
 NO = r"(no|nope|nah|n|negative|don't|do not)\b"
 RETRY = ("You gave no bin for the {} objects. Re-read every sentence of the instruction. If it says where they go, "

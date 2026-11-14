@@ -40,9 +40,9 @@ class Tracking(unittest.TestCase):
 
     def test_shape_vote(self):
         tr = Tracker(confirm=1)
-        for s, p in (("cube", 0.8), ("cube", 0.9), ("triangle", 0.8), ("triangle", 0.5), ("triangle", 0.6)):
+        for s, p in (("cube", 0.8), ("cube", 0.9), ("prism", 0.8), ("prism", 0.5), ("prism", 0.6)):
             t = tr.update([obj("yellow", 300, 300)], [(s, p)])[0]
-        self.assertEqual(t.shape, "cube")   # the unsure "triangle" answers don't vote
+        self.assertEqual(t.shape, "cube")   # the unsure "prism" answers don't vote
 
     def test_colours_are_not_mixed_up(self):
         tr = Tracker(confirm=1)
