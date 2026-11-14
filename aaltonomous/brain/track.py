@@ -3,6 +3,7 @@
     w = Watcher()                    # starts a background thread
     w.feed(bgr)                      # from the robot's 30 Hz loop: hand over the newest image, returns at once
     w.objects                        # latest list of Track (id, color, shape, x, y, w, h, ...), never blocks
+    t.name                           # ('red', 'cube'): an object is named by its (colour, shape)
     w.events                         # ["new 3 orange cube", "gone 1 blue cylinder", ...] since the last read
     w.stop()
 
@@ -39,6 +40,11 @@ class Track:
     @property
     def shape(self):
         return Counter(self.shapes).most_common(1)[0][0] if self.shapes else None
+
+    @property
+    def name(self):
+        """(colour, shape), e.g. ('red', 'cube'); two copies of a type share it, the id tells them apart."""
+        return self.color, self.shape
 
 
 class Tracker:

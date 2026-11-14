@@ -5,7 +5,8 @@
     python -m aaltonomous.brain.live data/g1_pick_cube/cam_high.mp4      # the robot's head-camera video
     python -m aaltonomous.brain.live video.mp4 --save out.mp4            # also write the annotated video
 
-Keys: q = quit, space = pause. Uses the same background Watcher as the robot code (track.py).
+Keys: q = quit, space = pause. Uses the same background Watcher as the robot code (track.py). A lid with shaped
+holes (lid.py) is looked for every 5th frame and drawn in green, each hole named (box, shape).
 The detector expects the robot's view of the whole table: each object about 0.4 to 3 % of the picture. Hold the
 webcam so the table with the objects fills the view from roughly half a metre away and above.
 """
@@ -15,6 +16,7 @@ import time
 import cv2
 
 from aaltonomous.brain.colors import BGR
+from aaltonomous.brain.lid import draw as draw_lid, find_lid
 from aaltonomous.brain.track import Watcher
 
 
@@ -37,7 +39,7 @@ def main(args):
     if not cap.isOpened():
         sys.exit(f"could not open {src}")
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
-    watcher, out, paused, frame = Watcher(), None, False, None
+    watcher, out, paused, frame, lid, n = Watcher(), None, False, None, None, 0
     try:
         while True:
             if not paused:
@@ -48,7 +50,9 @@ def main(args):
                 if frame.shape[1] != 640:   # the detector is tuned for the head camera's 640 px width
                     frame = cv2.resize(frame, (640, round(frame.shape[0] * 640 / frame.shape[1])))
                 watcher.feed(frame)
-            shown = draw(frame.copy(), watcher.objects, watcher.hz)
+                n += 1
+                lid = find_lid(frame, T=False) if n % 5 == 1 else lid
+            shown = draw_lid(draw(frame.copy(), watcher.objects, watcher.hz), lid)
             for e in watcher.events:
                 print(e)
             if save:

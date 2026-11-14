@@ -25,6 +25,10 @@ reason, plus one clarification *question*.
 | `track.py` | `Watcher`: detection + shapes + tracking in a background thread, stable ids, events ("new", "gone") |
 | `live.py` | Live view on the laptop webcam or a video: boxes, colours, shapes and ids drawn as it runs |
 | `test_track.py` | Tracking on moving made-up objects, flicker filtering, shape voting, the background thread |
+| `lid.py` | `find_lid(image, T)`: the lid with the shaped holes, which box it is on, each hole's shape, 3D centre and angle |
+| `test_lid.py` | Real lid photos (white, black, three boxes), 41 robot frames with open boxes (no lid may be found), drawn scenes with known answers |
+| `drop.py` | `drop_point(box, shape, lid, k)`: where to let go of an object, above its hole or at a free spot in an open box |
+| `test_drop.py` | Drop spots stay inside the box and apart; lid drops land on the right hole |
 
 Two modes:
 - **Chat (testing):** the model explains what confuses it and asks; your answer refines the plan.
@@ -42,6 +46,17 @@ objs = find_objects(head_bgr)                          # head camera image, BGR 
 plan = robot_plan(instruction, seen={o.color for o in objs})
 for o in objs:
     target = plan.bin_for(o.color)                     # "left" / "center" / "right", or None = leave it on the table
+```
+
+Objects are named `(colour, shape)` (`Track.name`, e.g. `('red', 'cube')`; two copies share a name, the id tells them
+apart) and holes `(box, shape)` (`Lid.pairs`, e.g. `('left', 'cube')`). For the lid task:
+
+```python
+from aaltonomous.brain.drop import drop_point
+from aaltonomous.brain.lid import find_lid
+
+lid = find_lid(head_bgr, T)                            # once, before the hand is over the boxes; None = no lid seen
+d = drop_point(target, shape, lid=lid, k=n_in_box)     # Drop(x, y, z, yaw) in the robot frame; None = hole not in view
 ```
 
 ## Setup (Windows)
@@ -118,3 +133,24 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
   that looks exactly like two touching objects of one colour, and the robot's case wins.
 - Dark patches (wood grain, stains, shadows) are not objects: an object needs a lit part (brightness 95+ of 255).
 - Shape names: cube, cylinder, prism (the organisers call the prism "triangle"; instructions may use either word).
+
+## Lid, holes and drop positions
+
+- One box has a lid (20 x 20 x 1 cm, white or black) with a square, a round and a triangular hole (about 6 cm). The
+  box and the lid can be turned, and the lid can lie anywhere from the box floor to the rim, so nothing is hard-coded:
+  each hole is found and named by its shape.
+- The lid is found inside a strongly orange box as one solid plate with holes, whatever its colour. On 41 robot
+  frames with open boxes (both dataset drops) no lid is found; all three real lid photos give all three holes.
+- Height without depth: a whole lid in view is 20 cm wide, which gives its height (positions within about 0.5 cm in
+  the drawn tests). If part of it is hidden (box wall, hand, image border) the 6 cm holes give it instead (within about
+  1.2 cm). **Please measure one square hole and the circle with a ruler**: the 6 cm is read off a photo.
+- A low lid seen at the robot's slant has its front part hidden behind the box's front wall; holes there are not
+  reported (`lid.hole(shape)` is None) rather than guessed. Bending the head or torso to look more steeply down helps.
+- A hole is `filled` when most of it is a colour other than the box floor (an object in it).
+- `drop_point`: lid box = above the matching hole, object bottom 2 cm above the lid, turned to the hole's `yaw`
+  (square: any multiple of 90 deg; triangle: of 120 deg). Open box = spots 5 cm apart around the middle
+  (k = objects already in that box), clearing the 8 cm walls. Box positions come from the organisers' scene file.
+- Not yet tested on the robot's camera with a real lid: the drops have no lid. The lid's real colours under the
+  venue lights may need a look once we have a head-camera frame of it.
+- Without a camera pose (`T=False`, e.g. phone photos) only shapes and image positions are given; boxes are named by
+  their order in the picture, which is the robot's left to right only if the photo looks the same way as the robot.
