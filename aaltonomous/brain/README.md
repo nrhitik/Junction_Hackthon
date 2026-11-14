@@ -1,21 +1,38 @@
 # brain: instruction understanding and colour detection
 
 A local LLM (Gemma 3 4B via Ollama) reads the sorting instruction and turns it into rules (colour/shape -> bin).
-Python then checks every rule against the world (3 colours, 3 shapes, 3 bins), so an unknown or made-up word never
-reaches the robot. Anything unclear becomes an *issue* with the reason, plus one clarification *question*.
+Python then checks every rule against the world (10 colour names, 3 shapes, 3 bins) and against the colours the
+camera sees, so an unknown or made-up word never reaches the robot. Anything unclear becomes an *issue* with the
+reason, plus one clarification *question*.
 
 | File | What |
 |---|---|
 | `llm.py` | Talks to Ollama (standard library only) |
 | `instruction.py` | `understand(text)` -> `Plan` (`mapping`, `bin_for(colour, shape)`, `issues`, `question`); `robot_plan()` for the robot |
-| `chat.py` | Terminal chat for trying new instructions, including answering the model's questions |
+| `match.py` | Plan vs. the colours on the table: "treat orange as red?", colours that are missing, objects with no instruction |
+| `ask.py` | Carries a question from the running robot code to a person at a terminal, and the answer back |
+| `chat.py` | Terminal chat for trying new instructions, including answering the model's questions; `image <file>` looks at a camera image first |
 | `test_instruction.py` | Offline checks (fake model replies) + live tests with Gemma (accuracy and time per call) |
 | `colors.py` | `find_objects(image)`: every object on the table with its colour name and pixel position (OpenCV) |
 | `test_colors.py` | 35 labelled head-camera frames from all 20 episodes (`testdata/`) + synthetic scenes for every palette colour |
 
 Two modes:
 - **Chat (testing):** the model explains what confuses it and asks; your answer refines the plan.
-- **Robot (sim / finals):** nobody can answer, so the robot sorts only what is clear and the question goes to the log.
+- **Robot (sim / finals):** `robot_plan(instruction, seen=colours)` logs the question and waits 15 s for an answer
+  typed in a terminal on the same machine (`python -m aaltonomous.brain.ask`). No answer: it sorts only what is clear.
+  Objects waiting for a "treat orange as red?" answer stay on the table.
+
+Wiring it into the robot code (call once per episode, in a background thread: it can take 3 to 25 s):
+
+```python
+from aaltonomous.brain.colors import find_objects
+from aaltonomous.brain.instruction import robot_plan
+
+objs = find_objects(head_bgr)                          # head camera image, BGR (cv2.cvtColor from the RGB in obs)
+plan = robot_plan(instruction, seen={o.color for o in objs})
+for o in objs:
+    target = plan.bin_for(o.color)                     # "left" / "center" / "right", or None = leave it on the table
+```
 
 ## Setup (Windows)
 

@@ -21,7 +21,6 @@ import numpy as np
 # colour name -> OpenCV hue range (0-179). Red wraps around.
 HUES = [("red", 0, 8), ("orange", 9, 19), ("yellow", 20, 52), ("green", 53, 85), ("cyan", 86, 104), ("blue", 105, 128),
         ("purple", 129, 150), ("pink", 151, 169), ("red", 170, 179)]
-PALETTE = ("red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink", "black", "white")
 BGR = {"red": (0, 0, 255), "orange": (0, 140, 255), "yellow": (0, 255, 255), "green": (0, 200, 0), "cyan": (255, 255, 0),
        "blue": (255, 0, 0), "purple": (200, 0, 150), "pink": (180, 105, 255), "black": (0, 0, 0),
        "white": (255, 255, 255)}

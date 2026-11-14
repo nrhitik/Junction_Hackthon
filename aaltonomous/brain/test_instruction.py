@@ -36,7 +36,7 @@ class Checks(unittest.TestCase):   # offline
         self.assertEqual((p.issues, p.question), ([], None))
 
     def test_unknown_words_are_flagged_and_dropped(self):
-        with fake(("green", None, "left"), (R, "sphere", "center"), (B, None, "top"), (Y, None, "right")):
+        with fake(("turquoise", None, "left"), (R, "sphere", "center"), (B, None, "top"), (Y, None, "right")):
             p = understand("x")
         self.assertEqual(p.rules, [(Y, None, "right")])
         self.assertEqual(len([i for i in p.issues if "don't know" in i]), 3)
@@ -63,6 +63,48 @@ class Checks(unittest.TestCase):   # offline
             p = understand("Everything left, red in the center, but red cubes and all triangles right.")
         self.assertEqual([p.bin_for(R, "cube"), p.bin_for(R, "cylinder"), p.bin_for(B, "triangle"),
                           p.bin_for(Y, "cube")], ["right", "center", "right", "left"])
+
+    # ---- plan checked against the colours the camera sees (match.py)
+    def test_alias_question_and_hold(self):
+        with fake((R, None, "left"), (Y, None, "center"), (B, None, "right")):
+            p = understand("x", seen={"orange", Y, B})
+        self.assertIn("treat orange as red", p.question)
+        self.assertEqual([p.bin_for("orange"), p.bin_for(Y), p.bin_for(B)], [None, "center", "right"])
+
+    def test_alias_confirmed_and_declined(self):
+        with fake((R, None, "left"), (Y, None, "center"), (B, None, "right")):
+            p = understand("x", seen={"orange", Y, B})
+        with fake(("orange", None, "left"), (Y, None, "center"), (B, None, "right")):   # the model applied "yes"
+            yes = understand("yes", p.messages, seen={"orange", Y, B})
+        self.assertEqual((yes.bin_for("orange"), yes.issues, yes.question), ("left", [], None))
+        with fake((R, None, "left"), (Y, None, "center"), (B, None, "right")):          # "no": nothing changes
+            no = understand("no", p.messages, seen={"orange", Y, B})
+        self.assertIsNone(no.bin_for("orange"))
+        self.assertNotIn("Should I treat", no.question)   # not asked a second time
+
+    def test_any_colour_can_be_sorted(self):
+        with fake(("green", None, "left"), ("black", None, "right")):
+            p = understand("x", seen={"green", "black"})
+        self.assertEqual((p.bin_for("green"), p.bin_for("black"), p.issues), ("left", "right", []))
+
+    def test_colour_not_on_the_table(self):
+        with fake(("green", None, "left"), (Y, None, "right")):
+            p = understand("x", seen={Y})
+        self.assertTrue(any("can't see any green" in i for i in p.issues))
+
+    def test_object_without_instruction_stays(self):
+        with fake((Y, None, "left"), (B, None, "right")):
+            p = understand("x", seen={Y, B, "pink"})
+        self.assertIsNone(p.bin_for("pink"))
+        self.assertTrue(any("pink" in i and "leave" in i for i in p.issues))
+        with fake((Y, None, "left"), (None, None, "right")):     # "everything else" covers it
+            p = understand("x", seen={Y, B, "pink"})
+        self.assertEqual((p.bin_for("pink"), p.issues), ("right", []))
+
+    def test_robot_waits_for_an_answer(self):
+        with fake((R, None, "left"), (Y, None, "center"), (B, None, "right")),                 mock.patch.object(ins, "ask", return_value=None) as asked:
+            p = ins.robot_plan("x", seen={"orange", Y, B}, log=lambda *_: None)
+        self.assertEqual((asked.call_args[0][1], p.bin_for("orange")), (15.0, None))   # no answer: stays
 
     def test_llm_down(self):
         with mock.patch.object(ins.llm, "chat", side_effect=OSError("connection refused")):
@@ -146,6 +188,18 @@ class Live(unittest.TestCase):
 
     def test_anomalies(self):
         self.run_cases("anomalies", ANOMALIES, True)
+
+    def test_scene(self):   # the camera sees orange, yellow and blue objects
+        seen = {"orange", Y, B}
+        p = understand(FIXED_INSTRUCTION, seen=seen)
+        self.assertIn("treat orange as red", p.question or "")
+        self.assertEqual([p.bin_for("orange"), p.bin_for(Y), p.bin_for(B)], [None, "center", "right"])
+        yes = understand("yes", p.messages, seen=seen)
+        self.assertEqual([yes.bin_for("orange"), yes.bin_for(Y), yes.bin_for(B)], ["left", "center", "right"])
+        p = understand("Orange ones go left, yellow in the middle, everything else on the right.", seen=seen)
+        self.assertEqual(([p.bin_for("orange"), p.bin_for(Y), p.bin_for(B)], p.issues), (["left", "center", "right"], []))
+        p = understand("Green objects go left, yellow center, blue right, orange left.", seen=seen)
+        self.assertTrue(any("can't see any green" in i for i in p.issues), p.issues)
 
 
 if __name__ == "__main__":
