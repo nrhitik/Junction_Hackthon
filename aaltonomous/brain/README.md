@@ -18,7 +18,7 @@ reason, plus one clarification *question*.
 
 Two modes:
 - **Chat (testing):** the model explains what confuses it and asks; your answer refines the plan.
-- **Robot (sim / finals):** `robot_plan(instruction, seen=colours)` logs the question and waits 15 s for an answer
+- **Robot (sim / finals):** `robot_plan(instruction, seen=colours)` logs the question and waits 8 s for an answer
   typed in a terminal on the same machine (`python -m aaltonomous.brain.ask`). No answer: it sorts only what is clear.
   Objects waiting for a "treat orange as red?" answer stay on the table.
 

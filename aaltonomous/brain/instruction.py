@@ -7,7 +7,7 @@
 
 Colours are open (match.PALETTE); `seen` = the colours the camera found (colors.py), checked by match.check_scene.
 Chat mode (chat.py): show plan.question, then understand(answer, plan.messages) refines the plan with the answer.
-Robot mode (robot_plan): ask through ask.py, wait 15 s; no answer -> sort only what is clear.
+Robot mode (robot_plan): ask through ask.py, wait 8 s; no answer -> sort only what is clear.
 """
 import json
 import re
@@ -147,7 +147,7 @@ def understand(text, messages=None, timeout=60.0, retry=True, seen=None):
     return plan
 
 
-def robot_plan(instruction, seen=None, log=print, wait=15.0):
+def robot_plan(instruction, seen=None, log=print, wait=8.0):
     """Robot mode: ask a person through ask.py and wait `wait` seconds. No answer: sort only what is clear."""
     plan = understand(instruction, seen=seen)
     for i in plan.issues:

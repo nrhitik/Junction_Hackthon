@@ -1,6 +1,6 @@
 """Hand a question from the running robot brain to a person at a terminal on the same machine (or container).
 
-Robot side:   answer = ask("Should I treat orange as red?", wait=15)   # None if nobody answers in time
+Robot side:   answer = ask("Should I treat orange as red?", wait=8)   # None if nobody answers in time
 Person side:  python -m aaltonomous.brain.ask                          # shows each question, sends what you type
 
 Two small files in the temp folder carry the question and the answer.
@@ -18,7 +18,7 @@ def _drop(*paths):
             os.remove(p)
 
 
-def ask(question, wait=15.0):
+def ask(question, wait=8.0):
     _drop(A)
     with open(Q, "w", encoding="utf-8") as f:
         f.write(question)

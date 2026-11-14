@@ -117,7 +117,7 @@ class Checks(unittest.TestCase):   # offline
     def test_robot_waits_for_an_answer(self):
         with fake((R, None, "left"), (Y, None, "center"), (B, None, "right")),                 mock.patch.object(ins, "ask", return_value=None) as asked:
             p = ins.robot_plan("x", seen={"orange", Y, B}, log=lambda *_: None)
-        self.assertEqual((asked.call_args[0][1], p.bin_for("orange")), (15.0, None))   # no answer: stays
+        self.assertEqual((asked.call_args[0][1], p.bin_for("orange")), (8.0, None))   # no answer: stays
 
     def test_llm_down(self):
         with mock.patch.object(ins.llm, "chat", side_effect=OSError("connection refused")):
