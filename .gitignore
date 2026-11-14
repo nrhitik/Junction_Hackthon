@@ -221,3 +221,6 @@ __marimo__/
 
 # datasets (downloaded separately, too big for git)
 data/
+
+# test outputs of the detection commands
+out.jpg

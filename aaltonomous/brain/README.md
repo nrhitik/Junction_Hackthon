@@ -22,6 +22,9 @@ reason, plus one clarification *question*.
 | `calibrate.py` | `fit_camera(image)`: the head camera's real pose, fitted so the three boxes (known positions) line up |
 | `locate.py` | `locate(obj, depth, T)`: an object's 3D position in the robot frame, with depth or from the table plane |
 | `test_locate.py` | Both position methods on made-up data with known answers, and the camera fit on real frames |
+| `track.py` | `Watcher`: detection + shapes + tracking in a background thread, stable ids, events ("new", "gone") |
+| `live.py` | Live view on the laptop webcam or a video: boxes, colours, shapes and ids drawn as it runs |
+| `test_track.py` | Tracking on moving made-up objects, flicker filtering, shape voting, the background thread |
 
 Two modes:
 - **Chat (testing):** the model explains what confuses it and asks; your answer refines the plan.
@@ -96,3 +99,15 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
 - Not yet reliable: the fitted pose varies between frames (52 to 61 deg looking down), and it needs the boxes to
   stand where the scene file says. Measured box sizes (wall height!) and positions at the venue would fix that.
   The walls look about 10 to 13 cm high on camera; the scene file's 6 cm is an unmeasured default.
+
+## Live detection and tracking
+
+- Laptop webcam: `.venv\Scripts\python -m aaltonomous.brain.live` (q = quit, space = pause). A video file works too:
+  `... live data\g1_pick_cube\cam_high.mp4`, and `--save out.mp4` writes the annotated video.
+- The window needs OpenCV with window support. The robot uses `opencv-python-headless` (requirements.txt); on the
+  laptop swap it once: `pip uninstall opencv-python-headless` then `pip install opencv-python`.
+- On the robot: create one `Watcher()`, call `feed(bgr)` from the 30 Hz loop (returns at once), read `objects`.
+  Detection runs about 20 times a second on the laptop CPU.
+- Measured on whole dataset episodes: episodes 10 and 15 give exactly the six objects with stable ids and correct
+  shapes. Objects held in the hand or partly hidden (by the hand, by a box wall) can get a wrong shape; objects cut
+  by the image border get no shape at all (None) rather than a guess.
