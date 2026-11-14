@@ -85,7 +85,10 @@ def find_objects(bgr, size=(0.004, 0.03), min_fill=0.45, ignore=("cyan",), **kw)
             hull = cv2.contourArea(cv2.convexHull(cv2.findContours(blob, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0]))
             if area < 0.65 * hull:
                 continue   # hollow / L-shaped: a piece of a bin, not objects
-            merged = area > hi or (area > 0.55 * hi and area < 0.93 * hull)   # too big, or big and not convex
+            w, h = st[i, cv2.CC_STAT_WIDTH], st[i, cv2.CC_STAT_HEIGHT]
+            # two touching objects: too big, or big and elongated, or big and not convex (the bigger, the stricter)
+            merged = area > hi or (area > 0.55 * hi and (max(w, h) > 1.7 * min(w, h) or
+                                                         area / hull < 0.85 + 0.1 * area / hi))
             for m in (_split(blob, max(2, int(np.ceil(area / hi)))) if merged else [blob]):
                 x, y, w, h = cv2.boundingRect(m)
                 a = int(m.sum())

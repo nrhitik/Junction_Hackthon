@@ -1,6 +1,7 @@
 """Tests for colour detection.  python -m unittest aaltonomous.brain.test_colors
 
-testdata/head_*.jpg: 24 frames of the robot's head camera (dataset zupermiez/g1_pick_cube), picked by eye so that
+testdata/head_*.jpg: 35 frames of the robot's head camera (dataset zupermiez/g1_pick_cube, at least one from each
+of its 20 episodes), picked by eye so that
 all six objects (2 blue, 2 orange, 2 yellow) are visible; the robot arm and the bins are in view too.
 """
 import collections
@@ -26,7 +27,7 @@ def scene(*colors):
 
 class Colors(unittest.TestCase):
     def test_head_camera_frames(self):
-        self.assertEqual(len(FRAMES), 24)
+        self.assertEqual(len(FRAMES), 35)
         wrong = {os.path.basename(f): dict(c) for f in FRAMES
                  if (c := collections.Counter(o.color for o in find_objects(cv2.imread(f))))
                  != {"blue": 2, "orange": 2, "yellow": 2}}

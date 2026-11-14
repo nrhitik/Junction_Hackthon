@@ -11,7 +11,7 @@ reaches the robot. Anything unclear becomes an *issue* with the reason, plus one
 | `chat.py` | Terminal chat for trying new instructions, including answering the model's questions |
 | `test_instruction.py` | Offline checks (fake model replies) + live tests with Gemma (accuracy and time per call) |
 | `colors.py` | `find_objects(image)`: every object on the table with its colour name and pixel position (OpenCV) |
-| `test_colors.py` | 24 labelled head-camera frames (`testdata/`) + synthetic scenes for every palette colour |
+| `test_colors.py` | 35 labelled head-camera frames from all 20 episodes (`testdata/`) + synthetic scenes for every palette colour |
 
 Two modes:
 - **Chat (testing):** the model explains what confuses it and asks; your answer refines the plan.
