@@ -1,4 +1,4 @@
-# brain: instruction understanding, colour and shape detection
+# brain: instruction understanding, colour and shape detection, 3D positions
 
 A local LLM (Gemma 3 4B via Ollama) reads the sorting instruction and turns it into rules (colour/shape -> bin).
 Python then checks every rule against the world (10 colour names, 3 shapes, 3 bins) and against the colours the
@@ -19,6 +19,9 @@ reason, plus one clarification *question*.
 | `shapes.py` | `classify(image, objects)`: cube / cylinder / triangle for each detected object; `train` makes `shapes.onnx` |
 | `shapes.onnx` | The trained network (1 MB). Runs with OpenCV alone, no PyTorch, ~3 ms for 9 objects on the CPU |
 | `test_shapes.py` | 79 real objects labelled by eye (`testdata/shapes.json`), never seen in training |
+| `calibrate.py` | `fit_camera(image)`: the head camera's real pose, fitted so the three boxes (known positions) line up |
+| `locate.py` | `locate(obj, depth, T)`: an object's 3D position in the robot frame, with depth or from the table plane |
+| `test_locate.py` | Both position methods on made-up data with known answers, and the camera fit on real frames |
 
 Two modes:
 - **Chat (testing):** the model explains what confuses it and asks; your answer refines the plan.
@@ -80,3 +83,16 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
   prisms, upright and lying, would tell us how good it really is.
 - Retrain (needs PyTorch: `pip install -r requirements-train.txt`): `python -m aaltonomous.brain.shapes train 60000 15`,
   about 3 minutes on an RTX 5070. The accuracy printed per pass jumps around; judge the final one.
+
+## 3D positions and the camera pose
+
+- `locate(obj, depth_mm, T)` gives the top centre of the object in the robot frame (pelvis: x forward, y left, z up).
+  With the depth image it is measured; without depth it uses the table height and the objects' 4.5 cm size.
+- The organisers' head-camera pose comes from the robot's design file and is not yet checked on the real robot. On
+  the dataset videos it does not fit: the boxes should appear lower and smaller than they do, and objects come out
+  36 cm ahead instead of the 26 to 33 cm the scene file gives.
+- `fit_camera(image)` adjusts the pose (and the boxes' wall height) until the drawn boxes cover the orange boxes in
+  the image. On the dataset this puts the objects 27 cm ahead and makes them look 6.4 cm wide, both as expected.
+- Not yet reliable: the fitted pose varies between frames (52 to 61 deg looking down), and it needs the boxes to
+  stand where the scene file says. Measured box sizes (wall height!) and positions at the venue would fix that.
+  The walls look about 10 to 13 cm high on camera; the scene file's 6 cm is an unmeasured default.
