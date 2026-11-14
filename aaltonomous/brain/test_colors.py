@@ -50,6 +50,11 @@ class Colors(unittest.TestCase):
     def test_cyan_and_black_white_are_off_by_default(self):
         self.assertEqual(find_objects(scene("cyan", "black", "white")), [])
 
+    def test_dark_patch_is_not_an_object(self):   # dark reddish wood grain / stains: no lit part
+        img = scene("orange")
+        cv2.rectangle(img, (300, 200), (370, 270), (25, 30, 85), -1)
+        self.assertEqual([o.color for o in find_objects(img)], ["orange"])
+
     def test_empty_table(self):
         self.assertEqual(find_objects(scene()), [])
 

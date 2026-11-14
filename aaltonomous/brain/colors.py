@@ -85,7 +85,7 @@ def find_objects(bgr, size=(0.004, 0.03), min_fill=0.45, ignore=("cyan",), **kw)
         if lo <= st[i, cv2.CC_STAT_AREA] <= 3 * hi and counts[top] >= 0.75 * total and close >= 0.95 * total:
             for c, m in masks.items():
                 m[blob] = c == top
-    cands = []
+    cands, bright = [], bgr.max(axis=2)
     for color, mask in masks.items():
         if color in ignore:
             continue
@@ -99,17 +99,22 @@ def find_objects(bgr, size=(0.004, 0.03), min_fill=0.45, ignore=("cyan",), **kw)
             if not lo <= area <= 3 * hi or any(y0 <= cy <= y1 for y0, y1 in rows):
                 continue   # noise, a bin, or a piece of a bin wall cut off by the robot's hand
             blob = (lab == i).astype(np.uint8)
-            hull = cv2.contourArea(cv2.convexHull(cv2.findContours(blob, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0]))
+            if color not in ("black", "white") and np.percentile(bright[blob > 0], 90) < 95:
+                continue   # no lit part: wood grain, a shadow or a stain, not an object (lit objects reach 170+; the wood grain on the webcam table: 87)
+            hull_pts = cv2.convexHull(cv2.findContours(blob, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0][0])
+            hull = cv2.contourArea(hull_pts)
             if area >= 0.65 * hull:   # hollow / L-shaped blobs are pieces of a bin, not objects
-                cands.append((color, blob, area, hull, st[i, cv2.CC_STAT_WIDTH], st[i, cv2.CC_STAT_HEIGHT]))
+                cands.append((color, blob, area, hull, st[i, cv2.CC_STAT_WIDTH], st[i, cv2.CC_STAT_HEIGHT], hull_pts))
     # how big one object is in THIS image: from the clean, compact blobs (a closer camera makes everything bigger)
-    solo = [a for _, _, a, hl, w, h in cands if a > 0.9 * hl and max(w, h) < 1.5 * min(w, h)]
+    solo = [a for _, _, a, hl, w, h, _ in cands if a > 0.9 * hl and max(w, h) < 1.5 * min(w, h)]
     one = float(np.clip(1.6 * np.percentile(solo, 25), hi, 10 * hi)) if len(solo) >= 3 else hi   # 3+ to trust it
-    for color, blob, area, hull, w, h in cands:
+    for color, blob, area, hull, w, h, hull_pts in cands:
+        filled = area / max(hull, 1)   # how convex the outline is (a dent can also be another object in front: on
+        # the robot's crowded table that looks the same as two touching objects, so it isn't treated differently)
         # two touching objects: big and elongated, or big and not convex (the bigger, the stricter), or huge.
         # One object alone is always convex (cube, cylinder and prism outlines are), however close the camera.
         merged = area > 2.2 * one or (area > 0.55 * one and (max(w, h) > 1.7 * min(w, h) or
-                                                             area / hull < 0.85 + 0.1 * min(area / one, 1)))
+                                                             filled < 0.85 + 0.1 * min(area / one, 1)))
         for m in (_split(blob, max(2, int(np.ceil(area / one)))) if merged else [blob]):
             x, y, w2, h2 = cv2.boundingRect(m)
             a = int(m.sum())

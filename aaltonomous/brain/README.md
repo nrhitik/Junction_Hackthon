@@ -113,5 +113,8 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
   shapes. Objects held in the hand or partly hidden (by the hand, by a box wall) can get a wrong shape; objects cut
   by the image border get no shape at all (None) rather than a guess.
 - The size of one object is estimated from each image, so a closer camera (the webcam) doesn't split one object into
-  two boxes. Objects cut by the image border can still be split: keep them fully in view.
+  two boxes. Objects cut by the image border can still be split: keep them fully in view. From a low, side-on view
+  (a webcam on the table) one object partly hidden behind another can also be split: on the robot's crowded table
+  that looks exactly like two touching objects of one colour, and the robot's case wins.
+- Dark patches (wood grain, stains, shadows) are not objects: an object needs a lit part (brightness 95+ of 255).
 - Shape names: cube, cylinder, prism (the organisers call the prism "triangle"; instructions may use either word).
