@@ -77,10 +77,23 @@ class Checks(unittest.TestCase):   # offline
         with fake(("orange", None, "left"), (Y, None, "center"), (B, None, "right")):   # the model applied "yes"
             yes = understand("yes", p.messages, seen={"orange", Y, B})
         self.assertEqual((yes.bin_for("orange"), yes.issues, yes.question), ("left", [], None))
+        with fake((R, None, "left"), (Y, None, "center"), (B, None, "right")):          # model ignored the "yes":
+            yes = understand("Yes please", p.messages, seen={"orange", Y, B})           # Python applies it anyway
+        self.assertEqual((yes.bin_for("orange"), yes.issues, yes.question), ("left", [], None))
         with fake((R, None, "left"), (Y, None, "center"), (B, None, "right")):          # "no": nothing changes
             no = understand("no", p.messages, seen={"orange", Y, B})
-        self.assertIsNone(no.bin_for("orange"))
-        self.assertNotIn("Should I treat", no.question)   # not asked a second time
+        self.assertEqual((no.bin_for("orange"), no.question), (None, None))   # stays, and no second question
+        self.assertTrue(any("orange" in i for i in no.issues))
+
+    def test_declined_alias_follows_the_other_rules(self):   # "put the green in left and the rest in center"
+        seen = {B, Y, "orange"}
+        with fake(("green", None, "left"), (None, None, "center")):
+            p = understand("x", seen=seen)
+            self.assertIn("treat yellow as green", p.question)
+            self.assertIsNone(p.bin_for(Y))
+            for answer in ("no", "yes", "leave it"):   # whatever is typed, an unchanged plan never asks again
+                p = understand(answer, p.messages, seen=seen)
+                self.assertEqual((p.bin_for(Y), p.bin_for(B), p.question), ("center", "center", None))
 
     def test_any_colour_can_be_sorted(self):
         with fake(("green", None, "left"), ("black", None, "right")):
@@ -198,6 +211,10 @@ class Live(unittest.TestCase):
         self.assertEqual([yes.bin_for("orange"), yes.bin_for(Y), yes.bin_for(B)], ["left", "center", "right"])
         p = understand("Orange ones go left, yellow in the middle, everything else on the right.", seen=seen)
         self.assertEqual(([p.bin_for("orange"), p.bin_for(Y), p.bin_for(B)], p.issues), (["left", "center", "right"], []))
+        p = understand("put the green in left. and put the rest in center.", seen=seen)
+        self.assertIn("treat yellow as green", p.question or "")
+        no = understand("no", p.messages, seen=seen)
+        self.assertEqual(([no.bin_for(c) for c in ("orange", Y, B)], no.question), (["center"] * 3, None))
         p = understand("Green objects go left, yellow center, blue right, orange left.", seen=seen)
         self.assertTrue(any("can't see any green" in i for i in p.issues), p.issues)
 

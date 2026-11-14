@@ -31,9 +31,10 @@ purple, lime -> green).
 bin" yourself.
 Never leave anything out: an unknown shape (ball, pyramid, star...) also gets its rule and an issue.
 Only judge what the instruction says: a colour it never mentions is not a problem.
-When the user answers a question, apply the answer to the whole plan and don't ask about that point again. If the
-user agrees to treat one colour as another ("yes, treat orange as red"), write the rules with the colour the camera
-really sees (orange).
+When the user answers a question, apply the answer to the whole plan and don't ask about that point again. An
+answer never erases the plan: always return the full list of rules.
+- The answer "no" to a question: return the same rules as before.
+- The answer "yes" to a question: return the same rules too; the program applies what was agreed.
 If the instruction mentions something that does not exist (a colour, shape or bin not listed above) or contradicts
 itself: still write the rules you are sure of, write unknown words into the rule exactly as given (never swap an
 unknown word for a known one, e.g. "top bin" stays "top"), and add each problem to "issues", saying why you are
@@ -61,6 +62,8 @@ SHAPE_WORDS = {"cube": ("cube", "cubic", "square"), "cylinder": ("cylind", "roun
                "triangle": ("triang", "prism", "wedge")}   # a shape counts only if the user said one of these
 ALIASES = {"centre": "center", "middle": "center", "central": "center", "prism": "triangle",
            "triangular prism": "triangle", "triangular": "triangle", "square": "cube", "round": "cylinder"}
+YES = r"(yes|yeah|yep|yup|y|ok|okay|sure|correct|affirmative|do it|go ahead|please do)\b"
+NO = r"(no|nope|nah|n|negative|don't|do not)\b"
 RETRY = ("You gave no bin for the {} objects. Re-read every sentence of the instruction. If it says where they go, "
          "add those rules and keep the others. If it really doesn't say, answer the same as before.")
 
@@ -94,8 +97,11 @@ def _norm(v, known):
 
 def understand(text, messages=None, timeout=60.0, retry=True, seen=None):
     messages = (messages or [{"role": "system", "content": SYSTEM}]) + [{"role": "user", "content": text}]
-    try:
-        reply = llm.chat(messages, SCHEMA, timeout)
+    before = json.loads(messages[-2]["content"]) if messages[-2].get("final") else {}   # the plan being answered
+    answer = text.strip().lower()
+    try:   # a plain yes / no keeps the rules as they were (Python applies it below); anything else goes to the model
+        reply = ({"rules": before["rules"]} if before and re.fullmatch(f"({YES}|{NO})\\W*", answer)
+                 else llm.chat(messages, SCHEMA, timeout))
     except Exception as e:  # LLM down / timeout / bad JSON: nothing is clear
         return Plan([], [f"I could not reach the language model ({e})."], None, messages)
     messages = messages + [{"role": "assistant", "content": json.dumps(reply)}]
@@ -113,6 +119,11 @@ def understand(text, messages=None, timeout=60.0, retry=True, seen=None):
         elif rules.setdefault((c, s), b) != b:
             issues.append(f"The {name} are sent to two bins ({rules[(c, s)]} and {b}).")
             rules[(c, s)] = None
+    if re.match(YES, answer):   # "yes" to our own "Should I treat orange as red?": orange gets red's bin
+        for near, c in re.findall(r"Should I treat (\w+(?: or \w+)*) as (\w+)\?", before.get("question") or ""):
+            for (rc, rs), rb in list(rules.items()):
+                for n in near.split(" or ") if rc == c and rb else ():
+                    rules[(n, rs)] = rb
     issues[:] = dict.fromkeys(issues)   # drop repeated messages, keep order
     plan = Plan([(c, s, b) for (c, s), b in rules.items() if b], issues, reply.get("question"), messages)
     skipped = [c for c in PALETTE if c in re.findall(r"[a-z]+", said) and plan.bin_for(c) is None]
@@ -126,8 +137,13 @@ def understand(text, messages=None, timeout=60.0, retry=True, seen=None):
     check_scene(plan, seen)
     if plan.issues and not plan.question:
         plan.question = "Could you tell me what you meant? " + " ".join(plan.issues)
-    # the model sees the final issues and question as its own, so the user's answer has its context
-    messages[-1]["content"] = json.dumps({**reply, "issues": plan.issues, "question": plan.question})
+    mine = sorted(({"color": c, "shape": s, "bin": b} for c, s, b in plan.rules), key=str)
+    if any(m["role"] == "assistant" and m.get("final") and json.loads(m["content"])["rules"] == mine
+           for m in messages[:-1]):
+        plan.question = None   # the plan is back where it was: asking again would loop; the issues stay as notes
+    # the model sees the checked rules, final issues and question as its own, so the user's answer has its context
+    messages[-1] = {"role": "assistant", "final": True,
+                    "content": json.dumps({"rules": mine, "issues": plan.issues, "question": plan.question})}
     return plan
 
 

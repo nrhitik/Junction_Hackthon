@@ -14,11 +14,8 @@ from aaltonomous.organisers.tasks import COLORS
 
 
 def look(path):
-    import cv2   # only needed for the image command
-    import numpy as np
-    from aaltonomous.brain.colors import find_objects
-    img = cv2.imdecode(np.fromfile(path, np.uint8), 1)
-    return collections.Counter(o.color for o in find_objects(img))
+    from aaltonomous.brain.colors import find_objects, load   # needs OpenCV: only for the image command
+    return collections.Counter(o.color for o in find_objects(load(path)))
 
 
 def show(plan, dt, seen):

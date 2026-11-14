@@ -106,9 +106,15 @@ def annotate(bgr, objs):
     return out
 
 
+def load(path, width=640):
+    """Read an image file and scale it to the head camera's width (the detector is tuned for that size)."""
+    img = cv2.imdecode(np.fromfile(path, np.uint8), 1)
+    return cv2.resize(img, (width, round(img.shape[0] * width / img.shape[1])), interpolation=cv2.INTER_AREA)
+
+
 if __name__ == "__main__":
     import sys
-    img = cv2.imdecode(np.fromfile(sys.argv[1], np.uint8), 1)
+    img = load(sys.argv[1])
     found = find_objects(img)
     for o in found:
         print(o)

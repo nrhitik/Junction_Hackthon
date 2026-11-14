@@ -3,7 +3,8 @@
     check_scene(plan, seen={"orange", "yellow", "blue"})
 
 - Instruction says red, no red on the table, but orange (a neighbour colour) is there without a rule of its own:
-  ask "should I treat orange as red?". Until someone says yes, the orange objects stay on the table (plan.hold).
+  ask once "should I treat orange as red?". While that is unanswered the orange objects stay on the table
+  (plan.hold); after a "no" they just follow the other rules.
 - Instruction names a colour that is not on the table and has no neighbour there: "I can't see any ... object".
 - A colour on the table that no rule covers: reported, left on the table.
 - seen=None (no camera): only check that the task's usual colours (red, yellow, blue) all have a bin.
@@ -31,12 +32,11 @@ def check_scene(plan, seen=None):
         near = [n for n in NEAR.get(c, ()) if n in seen and n not in ruled]
         ask = (f"The instruction says {c}, but I can't see a {c} object. I can see {' and '.join(near)} ones, "
                f"which look close. Should I treat {' or '.join(near)} as {c}?")
-        if near:
+        if near and ask not in earlier:
             plan.hold |= set(near)
-            if ask in earlier:   # already asked and not confirmed: don't ask again
-                plan.issues.append(f"I'll leave the {' and '.join(near)} objects on the table.")
-            else:
-                asks.append(ask)
+            asks.append(ask)
+        elif near:
+            pass   # already asked and not confirmed = declined: those objects just follow the other rules
         elif not any(n in seen and plan.bin_for(n) == plan.bin_for(c) for n in NEAR.get(c, ())):   # no stand-in
             plan.issues.append(f"I can't see any {c} object on the table.")
     if not covers_all:

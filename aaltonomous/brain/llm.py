@@ -14,6 +14,7 @@ MODEL = os.environ.get("BRAIN_MODEL", "gemma3:4b")
 
 def chat(messages, schema=None, timeout=60.0):
     """One chat call. `schema` (JSON schema) forces the reply into that shape; temperature 0 = repeatable."""
+    messages = [{"role": m["role"], "content": m["content"]} for m in messages]   # drop our own bookkeeping keys
     body = {"model": MODEL, "messages": messages, "stream": False, "format": schema or "json",
             "options": {"temperature": 0}, "keep_alive": "30m"}
     req = urllib.request.Request(f"{URL}/api/chat", json.dumps(body).encode(), {"Content-Type": "application/json"})
