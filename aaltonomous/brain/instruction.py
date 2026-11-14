@@ -80,7 +80,11 @@ def _norm(v, known):
     return v[:-1] if v not in known and v[:-1] in known else v   # plural: cubes -> cube
 
 
-def understand(text, messages=None, timeout=60.0):
+RETRY = ("You gave no bin for the {} objects. Re-read every sentence of the instruction. If it says where they go, "
+         "add those rules and keep the others. If it really doesn't say, answer the same as before.")
+
+
+def understand(text, messages=None, timeout=60.0, retry=True):
     messages = (messages or [{"role": "system", "content": SYSTEM}]) + [{"role": "user", "content": text}]
     try:
         reply = llm.chat(messages, SCHEMA, timeout)
@@ -105,6 +109,13 @@ def understand(text, messages=None, timeout=60.0):
     plan = Plan([(c, s, b) for (c, s), b in rules.items() if b], issues, reply.get("question"), messages)
     if not any(s for _, s, _ in plan.rules):   # colour-based plan: every colour needs a bin
         miss = [c for c in COLORS if plan.bin_for(c) is None]
+        if miss and retry:   # the model sometimes skips a sentence: ask once more before believing it
+            again = understand(RETRY.format(" and ".join(miss)), plan.messages, timeout, retry=False)
+            if len(again.mapping) > len(plan.mapping):
+                again.issues[:] = dict.fromkeys([i for i in issues if "don't know" in i] + again.issues)
+                again.question = again.question or (again.issues and "Could you tell me what you meant? " +
+                                                    " ".join(again.issues)) or None
+                return again
         if miss and not any("where" in i.lower() for i in issues):
             issues.append(f"The instruction doesn't say where the {' and '.join(miss)} objects go.")
     if plan.issues and not plan.question:
