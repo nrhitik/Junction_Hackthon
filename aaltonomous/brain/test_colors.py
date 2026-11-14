@@ -33,6 +33,10 @@ class Colors(unittest.TestCase):
                  != {"blue": 2, "orange": 2, "yellow": 2}}
         self.assertFalse(wrong)
 
+    def test_phone_photo(self):   # other camera, orange-tinted table, 9 objects incl. prisms, some lying down
+        img = cv2.imread(os.path.join(os.path.dirname(__file__), "testdata", "phone_table.jpg"))
+        self.assertEqual(collections.Counter(o.color for o in find_objects(img)), {"blue": 3, "orange": 3, "yellow": 3})
+
     def test_objects_are_inside_their_boxes(self):
         for o in find_objects(cv2.imread(FRAMES[0])):
             self.assertTrue(o.x <= o.cx <= o.x + o.w and o.y <= o.cy <= o.y + o.h)

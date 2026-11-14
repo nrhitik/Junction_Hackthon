@@ -14,7 +14,7 @@ reason, plus one clarification *question*.
 | `chat.py` | Terminal chat for trying new instructions, including answering the model's questions; `image <file>` looks at a camera image first |
 | `test_instruction.py` | Offline checks (fake model replies) + live tests with Gemma (accuracy and time per call) |
 | `colors.py` | `find_objects(image)`: every object on the table with its colour name and pixel position (OpenCV) |
-| `test_colors.py` | 35 labelled head-camera frames from all 20 episodes (`testdata/`) + synthetic scenes for every palette colour |
+| `test_colors.py` | 35 labelled head-camera frames from all 20 episodes and a phone photo (`testdata/`) + synthetic scenes for every palette colour |
 
 Two modes:
 - **Chat (testing):** the model explains what confuses it and asks; your answer refines the plan.
@@ -53,11 +53,15 @@ Other model or server: set `BRAIN_MODEL` (default `gemma3:4b`) or `OLLAMA_URL` (
 
 ## Colour detection: what it does and doesn't
 
-- Tuned on the robot's head camera at the venue (640x480). There the "red" objects read as **orange**, the "blue"
-  ones as **blue**, and the bins as **red**. Names come from the hue table `HUES` in `colors.py`.
+- An object is whatever differs clearly from the table's own colour in that image, so it adapts to the camera and
+  the lighting. Names come from the hue table `HUES` in `colors.py`. On the robot's head camera at the venue the
+  "red" objects read as **orange**, the "blue" ones as **blue** and the bins as **red**.
+- Object size is judged as a fraction of the image and assumes the head camera's view of the whole table. In a
+  close-up, or from far away, a bin can look object-sized and be reported as an object. On the robot the bins are
+  at known positions, so the code that has depth can drop anything inside them.
 - The robot's silver arm reads as cyan under the venue lights, so cyan is ignored by default (`ignore=()` turns
   that off). Black and white are only looked for with `achromatic=True`; the robot's black hands can look like
   black objects. Depth (available on the robot, not in the dataset) is the proper fix for both.
-- Measured on the dataset video (every 30th frame, 391 frames): a wrong extra colour in 8 frames, mostly while an
-  arm crosses in front of the bins.
+- Tests: 35 labelled head-camera frames from all 20 episodes and one phone photo with 9 objects (incl. prisms).
+  On the dataset video (every 30th frame, 391 frames) a wrong extra colour appears in 1 frame.
 - Dataset (not in git): download https://huggingface.co/datasets/zupermiez/g1_pick_cube into `data/g1_pick_cube/`.
