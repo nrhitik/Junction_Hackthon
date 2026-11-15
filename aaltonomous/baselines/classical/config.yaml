@@ -1,0 +1,286 @@
+# Classical rung-1 baseline (sort_fixed): HSV blobs + depth -> pelvis frame -> top-down pick -> bin.
+# Everything tunable at the venue lives here. Units: m, rad, s. Arm vectors (14) = left 7 then right 7
+# (joint_spec.yaml order). Hand vectors (7) are in the LEFT Dex3 DDS order (thumb0,1,2, middle0,1, index0,1);
+# the right hand is mirrored automatically (sign flip, index/middle swapped) unless `right:` is given.
+#
+# PROFILES: the values below are the robot-side defaults; `profiles.<name>` (dotted keys, bottom of this file)
+# override them. `profile: sim` = tuned in the Aalto Isaac sim (what the reference image scores with). Select
+# with $AALTO_PROFILE (e.g. AALTO_PROFILE=none = base values only); run.py --backend real uses `none` unless
+# --profile is given. Re-tune the sim values on the real robot before using them there (M8).
+profile: sim
+
+perception:
+  camera: head
+  # OpenCV HSV (H 0-180, S/V 0-255). Each colour = list of [lo, hi] ranges (red wraps around H=0).
+  hsv:
+    # S min 70: lit TOP faces are washed out (sim: S ~95 red/blue, ~123 yellow vs ~150 on the side faces). With
+    # S >= 120 only the front face matched, so the "top" was its upper edge: 15-20 mm short in x (2026-11-11).
+    # red stops at H 8: the orange boxes are H ~12 (~8 at worst under held-out bin DR); bin hulls are also masked.
+    # team 2026-11-14: real colours orange / yellow / purple (scene.yaml). Measured in the sim head camera over 6 layouts
+    # (object pixels only): orange H 13-22, yellow 27-29, purple 124-126 (pale tops: S 46-67), bins H 8-9.
+    orange: [[[9, 90, 90], [24, 255, 255]]]          # 9: raw scene colour (mock world, unlit) is H 9.5
+    yellow: [[[25, 70, 90], [35, 255, 255]]]
+    purple: [[[115, 35, 70], [135, 255, 255]]]
+  erode_px: 2                 # shrink the mask before using depth (edge pixels mix object + counter depth)
+  open_px: 3                  # morphological opening against speckle
+  min_area_px: 120            # smaller blobs are ignored
+  min_valid_depth_px: 25      # fewer valid depth pixels -> fall back to ray / plane at known object height
+  depth_range_mm: [150, 2000]
+  top_band: 0.006             # points within this of the highest (robust) point count as the top face
+  top_percentile: 92          # robust "highest point" percentile
+  merge_radius_m: 0.04        # team: detections closer than this = ONE object (keep the highest top: true colour)
+  box_front:                  # team: measure the bin row's front edge from head depth each episode, move model bins
+    enabled: true
+    shift_range_m: [-0.05, 0.15]
+    deadband_m: 0.015
+  height_range: [0.4, 2.0]    # accepted top height above the counter, in object sizes (rejects hands, bin walls)
+  counter_margin: 0.02        # objects must lie on the mat (+ margin)
+  bin_exclusion_margin: 0.01  # blobs whose centre is inside a bin footprint (+ margin) are bins / sorted objects
+  min_valid_frac: 0.2         # below this fraction of valid depth pixels the frame counts as 'no depth'
+  bin_pixel_margin: 0.004     # pixels whose 3D point is inside a bin footprint (+ margin) are dropped before grouping
+  object_size: null           # null = scene.yaml objects.size (grasp width)
+  xy_offset: [0.0, 0.0]   # pelvis-frame xy added to every detection (head extrinsics correction). TUNE on the robot
+  object_height: null         # null = scene.yaml size * height_ratio
+  lid_camera:                 # team (task 3): tune the lid holes with the head camera (teammate's find_lid + depth)
+    enabled: false            # OFF: hole positions hard-coded from the exact cutout model (scene lid layout)
+    tolerance_m: 0.029        # each hole moves at most +-29 mm (per axis) from the expected position (sim error)
+    # hands out of the head view for the lid look (at home the left hand hides the lid box); sim: lid found 4/4,
+    # holes within 5-6 mm (triangle by camera, square + circle from the model layout)
+    look_pose: [0.2, 0.7, 0.4, -0.2, 0.0, -0.5, 0.0, 0.2, -0.7, -0.4, -0.2, 0.0, -0.5, 0.0]
+  onnx:                       # team: + the teammate's ONNX shape classifier (aaltonomous/brain/shapes.onnx), fused
+    enabled: true             # with ours (perception.fuse_onnx_shapes). Orientation always from our 3D top face.
+  onnx_match_px: 35
+  shape:                      # team: cube / cylinder / triangle from the top-face outline (needs depth)
+    enabled: true
+    min_points: 40            # top-face points needed
+    min_area_frac: 0.3        # hull area >= this * size^2, else the outline is unreliable
+    triangle_pinch_shift: 0.0 # team: grasp target = the prism centroid (V-wedge grip)
+    min_fit: 0.75             # best fill ratio (hull vs rect / circle / triangle) needed to trust the class
+
+grasp:
+  # Grasp = "claw from above": palm faces the counter (approach axis = palm -y on the LEFT hand, mirrored right),
+  # fingers point roughly forward and curl down in front of the object, the thumb swings in from behind.
+  # Object centre in the LEFT palm frame; auto = midway finger tips <-> thumb tip (`closed`). The Dex3 index/middle
+  # tips are 57 mm apart (URDF): centred between them (auto) a 45 mm object wedges between the two fingers and is
+  # never released, so the point is shifted 15 mm sideways (palm z): pinch = thumb vs ONE finger. TUNE
+  point_in_palm: [0.099, -0.084, 0.015]
+  approach_axis_in_palm: [0.0, -1.0, 0.0]   # palm-frame axis that must point down (left; right mirrors y)
+  finger_hint: [1.0, 0.0, 0.0]              # weak preference for the finger direction (pelvis frame)
+  finger_hints:               # tried in turn (LEFT arm; right mirrors y): forward, forward-inward, inward
+    - [1.0, 0.0, 0.0]
+    - [1.0, -1.0, 0.0]
+    - [0.0, -1.0, 0.0]
+  finger_hint_weight: 0.3
+  height_frac: 0.5            # grasp point z = counter + height_frac * object size (before fingertip check)
+  fingertip_clearance: 0.012  # fingertips (preshape posture, URDF) stay this far above the counter at grasp
+  approach_height: 0.08       # pregrasp = grasp point this far above the grasp height
+  carry_height: 0.16          # grasp point z above the counter while carrying (clears bin walls + object)
+  drop_inset: 0.05            # release this far inside the inner walls at the box point nearest the pelvis (null = centre)
+  drop_above_rim: 0.04        # grasp point above bin rim + object half size when releasing
+  far_drop:                   # team: boxes measured far (real setup, box centres ~60 cm): deepest reachable release
+    enabled: true
+    min_shift_m: 0.05
+    insets: [0.035, 0.03, 0.025, 0.02, 0.015]   # object centre this far past the inner wall (tips in from 0.0)
+    heights: [0.06, 0.08, 0.10, 0.12]           # above the rim        # grasp point above bin rim + object half size when releasing
+  retreat_up: 0.08            # then a joint-space move home: start it high enough to clear the bin rims
+  release_posture: release     # hand posture for letting go (hand.<name>); back to `open` on the way home
+  arm: by_y                   # by_y = preferred arm first (bin side; centre bin: object side), other on failure | best = plan both, keep the faster
+  relocate:                   # cross-body: no arm can do object -> bin; pick with one arm, put down where the other can finish
+    enabled: true
+    insert_spots: [[0.33, 0.03], [0.33, 0.0], [0.30, 0.0], [0.30, 0.03], [0.28, 0.0], [0.28, 0.03]]   # team task 3: hand-over spots tried first (lid bin side)
+    reuse_tol_m: 0.03         # team task 3: reuse the other arm's spot plan if the object landed within this
+    insert_far_y: 0.05        # team task 3: objects this far on the non-lid side go straight to the hand-over
+    max_spots: 6              # counter spots tried (team: 15 -> 6 for speed) (nearest the target bin first; team: 6 -> 15, mid band only)
+    region_margin: 0.02       # spots on a grid over layout.region (+ margin), mat coords
+    clearance: 0.07           # spot centre this far from other detected objects
+  y_split: 0.0
+  insert_drop_above_lid: 0.02 # team rung 3: object bottom this far above the lid when released over its hole
+  depth_grasp_height: true    # team: grip at height_frac of the head-depth MEASURED object height
+  grasp_depth_from_top: 0.025
+  bin_margin: 0.006            # team: hand points within this of a bin's outer footprint must clear its rim (was 0.01)
+  insert_rim_raise: [0.01, 0.02, 0.03]   # team task 3 floor lid: release raised in these steps when the hand would
+                                      # hit the bin rim (corner holes: square / circle 32 mm from the walls) # team: grasp point 25 mm below the object's (measured) top; overrides height_frac.
+                              # fingertip_clearance still applies (may raise it: wedge fingers hang lower)
+  arm_select: nearest         # team: nearest = the hand closest to the object first (other hand = fallback);
+                              # bin = old rule (target bin's side; centre bin: object side)
+  arm_xy_offset: {left: [0.0, 0.0], right: [0.0, 0.0]}   # per-arm grasp xy correction (pelvis frame). TUNE on the robot
+  shape_grasp:                # team: pinch across flats. Finger direction (= thumb-finger pinch axis) aligned with a
+    enabled: true             # cube face normal / triangle flat->apex, instead of the fixed finger_hints (the cube's
+    hint_weight: 2.0          # 64 mm diagonal wedged between index and middle, 57 mm apart). Generic hints = fallback.
+    max_finger_err_deg: 20    # reject a grasp IK whose finger direction is further off the pinch axis than this
+    max_off_hint_deg: 100     # ignore pinch directions this far from every generic hint (unreachable wrist yaw)
+    triangle_palm_shift: [0.0, 0.0, 0.0]   # extra grasp-point shift in the palm frame for triangles (TUNE)
+  shape_profiles:             # team: per detected shape, the demo grip + its geometry (URDF fingertips at the demo
+    cube:                     # CONTACT posture): grasp point = thumb/finger midpoint, pinch axis = thumb -> fingers.
+      enabled: false           # shape_grasp turns that axis onto the object's pinch direction. Cylinder: no demo
+      preshape: preshape_demo # -> generic grip (hand.closed).
+      closed: closed_cube_demo
+      point_in_palm: [0.111, -0.075, 0.009]
+      pinch_axis_in_palm: [0.78, 0.27, -0.56]
+    triangle:                 # team: V-wedge grip (thumb on the flat face, apex forward between the fingers)
+      enabled: true
+      preshape: preshape
+      closed: closed_wedge
+      point_in_palm: [0.099, -0.084, 0.0]    # prism CENTROID centred between the fingers (no sideways offset)
+      pinch_axis_in_palm: [1.0, 0.0, 0.0]    # flat -> apex along the fingers
+    cylinder:                 # perfect demo: drop 1 ep 17
+      enabled: false
+      preshape: preshape_cyl
+      closed: closed_cyl
+      point_in_palm: [0.109, -0.078, -0.005]  # contact posture: thumb -> middle
+      pinch_axis_in_palm: [0.53, 0.19, -0.82]
+  hand_select:                # team: planner.best_pinch_plan score weights (lower score = better candidate)
+    enabled: true             # prisms: both hands x 3 pinch directions, best score
+    good_enough_score: 1.0    # team speed-up: stop at the first candidate this good (aligned, comfortable wrist)
+    tilt_weight: 0.5          # per degree of palm tilt at the grasp
+    wrist_weight: 100.0       # per rad that a wrist joint is closer than wrist_margin to its limit
+    wrist_margin: 0.35
+  feedback:                   # team: head-camera checks. After the lift: target colour at the hand? (no: missed ->
+    enabled: true             # open + home + re-look instead of carrying nothing). After the release: still at the
+    settle_s: 0.2             # hand? (stuck -> wrist shake over the bin, check again, max_shakes times).
+    min_px: 30                # target-colour depth pixels (every `step`-th) needed to call it present
+    step: 2
+    hand_radius: 0.06         # m around the grasp point = "in the hand"
+    spot_radius: 0.035        # m around the original grasp xy (at object height) = "still on the counter"
+    max_shakes: 0             # team speed-up: shakes only ever fired on false "stuck" alarms (was 2)
+    spot_required_shapes: [triangle]   # the wedge's hanging fingers can hide a held prism (0 px): call it missed
+                                       # only if it is seen back on its spot, else carry on
+    shake_amp: 0.3            # rad wrist roll (pitch 0.6x)
+
+brain:                        # team: task 2 instruction -> plan with the local LLM (aaltonomous/brain, Ollama gemma3:4b)
+  enabled: false              # team 2026-11-15: LLM removed from the image; rules_parser.py reads the instruction
+  timeout_s: 30
+
+team_safety:                  # team: checked IN ADDITION to the challenge SafetyFilter (which has no self-collision)
+  enabled: true
+  margin: 0.015               # min distance arm-arm / arm-body (URDF collision meshes, convex hulls), m. Hull vs
+                              # exact mesh (2572 plan ticks): hull >= 1.5 cm -> exact >= 1.5 cm; real contact only at hull < 0.5
+  pair_margins:               # shoulder_yaw sits next to the torso by design (home: 3.8 cm exact) and barely moves
+    shoulder_yaw_link-torso_link: 0.010   # with tracking error; far-row reaches bring it to 1.2-1.5 cm
+  cross_margin: 0.06          # no left-arm point at pelvis y < -this, no right-arm point at y > +this (no cross-body)
+  check_every: 4              # plan ticks between checks (the sent-chunk guard checks every 3rd tick)
+
+ik:
+  limit_margin: 0.08          # rad inside URDF limits (safety filter clips beyond 0.05)
+  pos_tol: 0.006
+  max_tilt_deg: 25            # approach axis vs straight down
+  orient_weight: [0.3, 0.1, 0.03]   # tried in turn: top-down first, then trade tilt (<= max_tilt) for reach
+  damping: 0.05
+  seed_weight: 0.03          # pull towards the seed (continuity along Cartesian paths)
+  max_iters: 150
+  max_step: 0.2
+  random_restarts: 8
+
+motion:
+  arm_max_vel: 0.5            # rad/s per joint (safety filter allows 1.0)
+  arm_max_acc: 1.5            # rad/s^2
+  hand_max_vel: 1.2           # rad/s (filter allows 3.0)
+  cart_step: 0.02             # Cartesian segments are split into IK waypoints this far apart
+  max_joint_step: 0.4         # rad between neighbouring Cartesian IK waypoints (more = branch flip, bisect / fail)
+  close_hold_s: 0.4           # wait after the hand reaches the closed posture
+  open_hold_s: 0.4
+  settle_s: 0.5               # hold at home before looking (arm lag, motion blur)
+  chunk: 10                   # ticks returned per act() (0.33 s)
+  hold_ticks: 6               # ticks per hold while planning / waiting (fewer requests; <= 0.2 s extra latency)
+  counter_clearance: 0.03     # hand points above the counter footprint stay this high during transit
+
+# Arms out of the head camera's view of the cube region and above counter height. TUNE on the robot
+# (start = where teleop leaves the arms; the first move goes there at arm_max_vel).
+# Default (2026-11-11, layout v1): hands ~22 cm above pelvis height at y = +-0.22 m, all hand points >= 6 cm above
+# the bin rims and >= 40 px outside the head image. (The old [-0.2, 0.9, 0, 0, 0, 1.0, 0] put both hands INTO the
+# side bins of layout v1 -- in the sim the wrists jammed on the bin walls.)
+home_arm_q: [0.2, 0.7, 0.4, -0.2, 0.0, -0.5, 0.0,
+             0.2, -0.7, -0.4, -0.2, 0.0, -0.5, 0.0]
+
+hand:                          # LEFT order: thumb0, thumb1, thumb2, middle0, middle1, index0, index1. TUNE closed
+  open:     [0.0, -0.5, 1.5, -0.4, -0.4, -0.4, -0.4]    # = preshape (thumb back + up): also the release-to-home posture
+  preshape: [0.0, -0.5, 1.5, -0.4, -0.4, -0.4, -0.4]    # wide claw: thumb back + tucked up, fingers half bent
+  closed:   [0.0, -0.02, 1.14, -1.12, -0.64, -1.12, -0.64]  # team 2026-11-15: back to -1.12/-0.64 (real robot: cylinder not gripped when 0.05 more open). team "mid" (was [0, -0.1, 1.2, -1.0, -0.6, -1.0, -0.6]): finger tips (0.101, -0.089), thumb tip (0.065, -0.088) in the
+                                                         # palm frame: 3.6 cm gap = 0.9 cm squeeze on a 4.5 cm object. TUNE
+                                                         # (old [0, 0.5, 0.8, ...] closed the tips onto ONE point = the object
+                                                         # centre: in the sim the cube got wedged between index and middle)
+  # team (2026-11-14): `closed` = "mid": deeper squeeze measured from the real teleop demos (sim A/B 18/24 vs 15/24).
+  # closed_triangle: thumb vs INDEX only, middle finger straight (3/5 real prism demos grip like this): nothing for the
+  # apex to wedge between. Used when perception classifies the object as a triangle.
+  closed_triangle: [0.0, -0.02, 1.14, -0.1, -0.05, -1.12, -0.64]
+  # team: prism V-WEDGE (2026-11-14): index + middle hang straight down (side walls 41 mm apart), the thumb (tip at
+  # x ~93 mm) pushes the flat face so both sloped faces wedge on the finger sides. Lift test 5/6 (both hands).
+  closed_wedge: [0.0, 0.52, 0.64, -1.35, -0.05, -1.35, -0.05]   # team: thumb push 9 mm (lift test 5/6); finger SIDES = walls
+  # team: grips measured in the CLEAN real demos (both drops; right hands mirrored to the left order)
+  # Per hand (no left/right mirroring: with thumb0 != 0 the repo mirror rule is 55-105 mm off in the URDF; the demos
+  # confirm it: the operators' open hand has thumb0 -0.80 left / -0.67 right, i.e. the SAME sign).
+  preshape_demo:     [-0.80, 0.92, 0.08, -0.31, 0.0, -0.37, 0.0]     # 24 clean LEFT cube demos: hand before the grasp
+  closed_cube_demo:  [-0.01, 0.92, 0.12, -0.50, -1.24, -0.48, -1.26] # 24 clean LEFT cube grasps, commanded (median)
+  closed_prism_demo: [0.35, 0.92, 0.18, -0.32, -0.04, -0.56, -1.35]  # RIGHT prism eps 16-18 mirrored geometrically
+                                                                     # (thumb0 same sign): thumb vs index, middle straight
+  # team: the single PERFECT demo per shape (one closure, clean lift, placed)
+  preshape_prism: [-0.57, 0.92, 0.01, -0.13, 0.0, -0.44, 0.0]   # drop 2 ep 18 (right hand, geometric mirror)
+  closed_prism:   [0.31, 0.92, 0.12, -0.20, -0.02, -0.65, -1.19] # thumb vs index, middle straight; contact gap 47 mm
+  preshape_cyl:   [-0.49, 0.79, 0.0, -0.23, 0.0, 0.0, 0.0]       # drop 1 ep 17 (left hand, raw)
+  closed_cyl:     [0.30, 0.92, 0.11, -0.65, -1.19, -0.35, -0.01] # thumb vs middle, index straight
+  release:  [0.0, -0.5, 1.5, -0.05, -0.05, -0.05, -0.05] # let go: thumb back + up, fingers straight (sim: the cube
+                                                         # stayed hooked in half-bent fingers with `open`/`preshape`)
+  right:                       # optional explicit right-hand postures {open, preshape, closed} in RIGHT DDS order
+    # team: RIGHT order thumb0,1,2, index0,1, middle0,1 -- recorded on the right hand in the clean demos
+    preshape_demo:     [-0.67, -0.92, -0.46, 0.16, 0.0, 0.19, 0.0]   # 5 clean right cube demos
+    closed_cube_demo:  [-0.15, -0.92, -0.27, 0.89, 1.72, 0.60, 1.72] # 5 clean right cube grasps (1.75 -> 1.72: limit)
+    closed_prism_demo: [0.35, -0.92, -0.18, 0.56, 1.35, 0.32, 0.04]  # 3 right prism demos (eps 16-18)
+    preshape_prism: [-0.57, -0.92, -0.01, 0.44, 0.0, 0.13, 0.0]     # drop 2 ep 18, raw right
+    closed_prism:   [0.31, -0.92, -0.12, 0.65, 1.19, 0.20, 0.02]
+    preshape_cyl:   [-0.49, -0.79, 0.0, 0.0, 0.0, 0.23, 0.0]        # drop 1 ep 17, geometric mirror
+    closed_cyl:     [0.30, -0.92, -0.11, 0.35, 0.01, 0.65, 1.19]
+
+policy:
+  max_attempts: 3             # same object re-detected after this many tries -> skip it (team: 2 -> 3)
+  insert_only_shapes: [cube]  # team task 3 (2026-11-15): only cubes are inserted for now; others stay on the table
+  look_from_retreat: true     # team speed-up: look + plan the next pick from above the bin (no trip home)
+  relocate_min_time_s: 40     # team speed-up: no "put it down for the other hand" search with less time left
+  final_check:                # team: before ending, a fresh look; objects still outside the bins get ONE extra
+    enabled: true             # attempt each if >= min_time_s remain, then the table is checked again and logged
+    extra_attempts: 1
+    min_time_s: 15
+  same_object_radius: 0.03
+  order: shape_priority       # nearest_bin | largest | shape_priority (team)
+  shape_priority: [cube, cylinder, null, triangle]   # team: pick order by detected shape (null = not classified)
+
+# Overrides per profile (dotted keys). `sim` = Aalto Isaac sim, ported from the oracle's ORACLE_OVERRIDES
+# (sim/oracle.py) minus anything privileged; SIM-TUNED, not validated on the robot.
+profiles:
+  sim:
+    # Home = the sim task's ARM_HOME (sim/aalto_task/layout.py; arms down, elbows bent), the pose the evaluator
+    # leaves the arms in. Hands ARE in the head view there, but off the objects in the nominal layouts (measured
+    # perception error ~4 mm). The robot default home above keeps them out of view.
+    home_arm_q: [0.0, 0.35, 0.0, -0.5, 0.0, 0.0, 0.0,
+                 0.0, -0.35, 0.0, -0.5, 0.0, 0.0, 0.0]
+    motion.arm_max_vel: 0.97      # safety filter allows 1.0
+    motion.arm_max_acc: 8.0
+    motion.hand_max_vel: 2.5      # filter allows 3.0
+    motion.close_hold_s: 0.25
+    motion.open_hold_s: 0.4
+    motion.settle_s: 0.3
+    motion.counter_clearance: 0.02
+    motion.max_joint_step: 0.6
+    ik.max_tilt_deg: 35
+    ik.random_restarts: 4
+  # Team (2026-11-14): measured on the REAL head camera (drop zupermiez/g1_pick_cube, eps 0/9/17; team/tools/real_hsv*.py).
+  # Real "red" objects look ORANGE (H 12-14, V~250); the bins/tape are H 3-7 and darker (V 100-160) -> red = H 10-17.
+  # Violet "blue" H 108-118; mat has the same hue but S < 45, black hand V < 50 -> S >= 100, V >= 120.
+  # Yellow top faces wash out (S 10-48): only the sides match, as in the sim. Checked on drop 1 (eps 0/9/17) + drop 2
+  # (eps 5/17/25/40): all objects found; small red specks remain on some bin rims (3D bin exclusion must drop them).
+  real:
+    # team 2026-11-15, measured on the real G1 (4 v2 runs): the arm lags 5-13 cm at the drop when the hand opens at
+    # once, and sags ~15 mm short / ~19 mm low at rest at the grasp -> wait for it, aim to compensate
+    motion.pre_close_hold_s: 0.8
+    motion.pre_release_hold_s: 1.2
+    grasp.aim_offset:
+      grasp: [0.014, 0.0, 0.019]
+      drop: [0.0, 0.0, 0.03]
+    # organisers 2026-11-14: the real colours are named orange / yellow / purple (sort_fixed: yellow -> left,
+    # purple -> center, orange -> right). Classes carry those names so they match the instruction words.
+    perception.hsv:
+      orange: [[[9, 110, 100], [18, 255, 255]]]   # V >= 100: shadowed faces (drop 2); hue (>= 9) separates the bins
+      yellow: [[[19, 60, 120], [45, 255, 255]]]
+      purple: [[[104, 100, 120], [125, 255, 255]]]
+    # episodes start at the official home pose (= sim ARM_HOME, INTERFACE.md): stay there, no extra first move
+    home_arm_q: [0.0, 0.35, 0.0, -0.5, 0.0, 0.0, 0.0,
+                 0.0, -0.35, 0.0, -0.5, 0.0, 0.0, 0.0]

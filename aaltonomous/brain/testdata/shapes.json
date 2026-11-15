@@ -1,0 +1,792 @@
+[
+{
+"file": "head_00000.jpg",
+"box": [
+282,
+355,
+74,
+93
+],
+"shape": "cube"
+},
+{
+"file": "head_00000.jpg",
+"box": [
+332,
+268,
+63,
+81
+],
+"shape": "cylinder"
+},
+{
+"file": "head_00000.jpg",
+"box": [
+393,
+351,
+73,
+94
+],
+"shape": "cylinder"
+},
+{
+"file": "head_00000.jpg",
+"box": [
+401,
+267,
+76,
+88
+],
+"shape": "cube"
+},
+{
+"file": "head_00000.jpg",
+"box": [
+500,
+276,
+79,
+82
+],
+"shape": "cylinder"
+},
+{
+"file": "head_00000.jpg",
+"box": [
+488,
+372,
+108,
+108
+],
+"shape": "cube"
+},
+{
+"file": "head_01500.jpg",
+"box": [
+202,
+80,
+84,
+93
+],
+"shape": "cube"
+},
+{
+"file": "head_01500.jpg",
+"box": [
+284,
+342,
+71,
+90
+],
+"shape": "cylinder"
+},
+{
+"file": "head_01500.jpg",
+"box": [
+375,
+276,
+91,
+87
+],
+"shape": "cube"
+},
+{
+"file": "head_01500.jpg",
+"box": [
+391,
+358,
+74,
+86
+],
+"shape": "cylinder"
+},
+{
+"file": "head_01500.jpg",
+"box": [
+497,
+271,
+79,
+82
+],
+"shape": "cylinder"
+},
+{
+"file": "head_01500.jpg",
+"box": [
+483,
+370,
+109,
+110
+],
+"shape": "cube"
+},
+{
+"file": "head_02498.jpg",
+"box": [
+304,
+392,
+75,
+88
+],
+"shape": "cylinder"
+},
+{
+"file": "head_02498.jpg",
+"box": [
+308,
+292,
+80,
+94
+],
+"shape": "cube"
+},
+{
+"file": "head_02498.jpg",
+"box": [
+364,
+343,
+93,
+84
+],
+"shape": "cube"
+},
+{
+"file": "head_02498.jpg",
+"box": [
+399,
+412,
+77,
+68
+],
+"shape": "cylinder"
+},
+{
+"file": "head_02498.jpg",
+"box": [
+496,
+275,
+78,
+83
+],
+"shape": "cylinder"
+},
+{
+"file": "head_02498.jpg",
+"box": [
+481,
+372,
+110,
+108
+],
+"shape": "cube"
+},
+{
+"file": "head_04093.jpg",
+"box": [
+301,
+276,
+80,
+93
+],
+"shape": "cube"
+},
+{
+"file": "head_04093.jpg",
+"box": [
+304,
+394,
+73,
+86
+],
+"shape": "cylinder"
+},
+{
+"file": "head_04093.jpg",
+"box": [
+364,
+361,
+91,
+81
+],
+"shape": "cube"
+},
+{
+"file": "head_04093.jpg",
+"box": [
+495,
+289,
+78,
+70
+],
+"shape": "cylinder"
+},
+{
+"file": "head_04093.jpg",
+"box": [
+479,
+372,
+110,
+108
+],
+"shape": "cube"
+},
+{
+"file": "head_05760.jpg",
+"box": [
+252,
+411,
+70,
+69
+],
+"shape": "cylinder"
+},
+{
+"file": "head_05760.jpg",
+"box": [
+265,
+293,
+63,
+81
+],
+"shape": "cube"
+},
+{
+"file": "head_05760.jpg",
+"box": [
+320,
+362,
+66,
+91
+],
+"shape": "cylinder"
+},
+{
+"file": "head_05760.jpg",
+"box": [
+325,
+266,
+73,
+84
+],
+"shape": "cube"
+},
+{
+"file": "head_05760.jpg",
+"box": [
+416,
+357,
+87,
+98
+],
+"shape": "cube"
+},
+{
+"file": "head_05760.jpg",
+"box": [
+429,
+273,
+64,
+85
+],
+"shape": "cylinder"
+},
+{
+"file": "head_06900.jpg",
+"box": [
+266,
+201,
+67,
+76
+],
+"shape": "cube"
+},
+{
+"file": "head_06900.jpg",
+"box": [
+321,
+303,
+60,
+81
+],
+"shape": "cylinder"
+},
+{
+"file": "head_06900.jpg",
+"box": [
+434,
+311,
+74,
+77
+],
+"shape": "cylinder"
+},
+{
+"file": "head_06900.jpg",
+"box": [
+446,
+252,
+84,
+74
+],
+"shape": "cube"
+},
+{
+"file": "head_06900.jpg",
+"box": [
+499,
+314,
+77,
+86
+],
+"shape": "cube"
+},
+{
+"file": "head_08700.jpg",
+"box": [
+152,
+138,
+53,
+32
+],
+"shape": "cylinder"
+},
+{
+"file": "head_08700.jpg",
+"box": [
+246,
+199,
+61,
+84
+],
+"shape": "cube"
+},
+{
+"file": "head_08700.jpg",
+"box": [
+328,
+269,
+59,
+80
+],
+"shape": "cylinder"
+},
+{
+"file": "head_08700.jpg",
+"box": [
+384,
+342,
+74,
+86
+],
+"shape": "cube"
+},
+{
+"file": "head_08700.jpg",
+"box": [
+412,
+228,
+75,
+83
+],
+"shape": "cube"
+},
+{
+"file": "head_08700.jpg",
+"box": [
+436,
+293,
+81,
+82
+],
+"shape": "cylinder"
+},
+{
+"file": "head_09060.jpg",
+"box": [
+283,
+208,
+72,
+71
+],
+"shape": "cube"
+},
+{
+"file": "head_09060.jpg",
+"box": [
+287,
+338,
+65,
+89
+],
+"shape": "cylinder"
+},
+{
+"file": "head_09060.jpg",
+"box": [
+335,
+272,
+60,
+80
+],
+"shape": "cylinder"
+},
+{
+"file": "head_09060.jpg",
+"box": [
+388,
+344,
+76,
+89
+],
+"shape": "cube"
+},
+{
+"file": "head_09060.jpg",
+"box": [
+420,
+232,
+74,
+82
+],
+"shape": "cube"
+},
+{
+"file": "head_09060.jpg",
+"box": [
+441,
+297,
+86,
+84
+],
+"shape": "cylinder"
+},
+{
+"file": "head_09300.jpg",
+"box": [
+275,
+204,
+74,
+84
+],
+"shape": "cube"
+},
+{
+"file": "head_09300.jpg",
+"box": [
+281,
+339,
+66,
+86
+],
+"shape": "cylinder"
+},
+{
+"file": "head_09300.jpg",
+"box": [
+357,
+271,
+80,
+81
+],
+"shape": "cylinder"
+},
+{
+"file": "head_09300.jpg",
+"box": [
+383,
+341,
+77,
+91
+],
+"shape": "cube"
+},
+{
+"file": "head_09300.jpg",
+"box": [
+415,
+227,
+73,
+85
+],
+"shape": "cube"
+},
+{
+"file": "head_09300.jpg",
+"box": [
+433,
+293,
+80,
+84
+],
+"shape": "cylinder"
+},
+{
+"file": "head_09840.jpg",
+"box": [
+244,
+396,
+73,
+84
+],
+"shape": "cylinder"
+},
+{
+"file": "head_09840.jpg",
+"box": [
+290,
+201,
+71,
+81
+],
+"shape": "cube"
+},
+{
+"file": "head_09840.jpg",
+"box": [
+342,
+337,
+86,
+102
+],
+"shape": "cube"
+},
+{
+"file": "head_09840.jpg",
+"box": [
+373,
+242,
+59,
+79
+],
+"shape": "cylinder"
+},
+{
+"file": "head_09840.jpg",
+"box": [
+452,
+342,
+80,
+93
+],
+"shape": "cylinder"
+},
+{
+"file": "head_09840.jpg",
+"box": [
+453,
+250,
+90,
+93
+],
+"shape": "cube"
+},
+{
+"file": "head_10505.jpg",
+"box": [
+285,
+218,
+61,
+78
+],
+"shape": "cylinder"
+},
+{
+"file": "head_10505.jpg",
+"box": [
+352,
+186,
+66,
+80
+],
+"shape": "cube"
+},
+{
+"file": "head_10505.jpg",
+"box": [
+392,
+264,
+68,
+86
+],
+"shape": "cylinder"
+},
+{
+"file": "head_10505.jpg",
+"box": [
+416,
+195,
+68,
+79
+],
+"shape": "cube"
+},
+{
+"file": "head_10505.jpg",
+"box": [
+461,
+165,
+58,
+71
+],
+"shape": "cylinder"
+},
+{
+"file": "head_10505.jpg",
+"box": [
+451,
+231,
+98,
+85
+],
+"shape": "cube"
+},
+{
+"file": "head_11640.jpg",
+"box": [
+296,
+217,
+67,
+80
+],
+"shape": "cylinder"
+},
+{
+"file": "head_11640.jpg",
+"box": [
+326,
+278,
+67,
+88
+],
+"shape": "cube"
+},
+{
+"file": "head_11640.jpg",
+"box": [
+386,
+195,
+78,
+90
+],
+"shape": "cube"
+},
+{
+"file": "head_11640.jpg",
+"box": [
+393,
+291,
+67,
+86
+],
+"shape": "cylinder"
+},
+{
+"file": "head_11640.jpg",
+"box": [
+460,
+180,
+74,
+78
+],
+"shape": "cylinder"
+},
+{
+"file": "head_11640.jpg",
+"box": [
+458,
+256,
+91,
+89
+],
+"shape": "cube"
+},
+{
+"file": "phone_table.jpg",
+"box": [
+119,
+179,
+60,
+62
+],
+"shape": "prism"
+},
+{
+"file": "phone_table.jpg",
+"box": [
+141,
+103,
+55,
+58
+],
+"shape": "cylinder"
+},
+{
+"file": "phone_table.jpg",
+"box": [
+185,
+214,
+59,
+54
+],
+"shape": "cube"
+},
+{
+"file": "phone_table.jpg",
+"box": [
+222,
+79,
+49,
+44
+],
+"shape": "cylinder"
+},
+{
+"file": "phone_table.jpg",
+"box": [
+271,
+117,
+63,
+70
+],
+"shape": "cube"
+},
+{
+"file": "phone_table.jpg",
+"box": [
+333,
+169,
+48,
+60
+],
+"shape": "cylinder"
+},
+{
+"file": "phone_table.jpg",
+"box": [
+350,
+79,
+44,
+55
+],
+"shape": "prism"
+},
+{
+"file": "phone_table.jpg",
+"box": [
+386,
+230,
+68,
+67
+],
+"shape": "cylinder"
+},
+{
+"file": "phone_table.jpg",
+"box": [
+415,
+112,
+49,
+57
+],
+"shape": "prism"
+}
+]
